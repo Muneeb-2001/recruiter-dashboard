@@ -1,0 +1,135 @@
+﻿===== LOCATION =====
+C:\Users\Muneeb\Documents\AI-ATS-System
+
+===== PROJECT FILES =====
+.env.local
+.gitignore
+AGENTS.md
+CLAUDE.md
+eslint.config.mjs
+next-env.d.ts
+next.config.ts
+package-lock.json
+package.json
+postcss.config.mjs
+README.md
+tsconfig.json
+public\file.svg
+public\globe.svg
+public\next.svg
+public\vercel.svg
+public\window.svg
+src\app\favicon.ico
+src\app\globals.css
+src\app\globals.css.backup
+src\app\globals.css.before-font-fix
+src\app\globals.css.before-form-cleanup.bak
+src\app\globals.css.before-import-fix
+src\app\globals.css.before-only-form.bak
+src\app\layout.tsx
+src\app\page.tsx
+src\app\page.tsx.backup
+src\app\page.tsx.before-final-symbol-cleanup.bak
+src\app\page.tsx.before-form-cleanup.bak
+src\app\page.tsx.before-only-form.bak
+src\app\page.tsx.before-symbol-cleanup.bak
+src\app\api\candidates\route.ts
+src\app\api\candidates\route.ts.backup
+src\app\api\interview\send\route.ts
+src\app\dashboard\page.tsx
+src\app\dashboard\page.tsx.backup
+src\app\dashboard\page.tsx.backup-before-date-fix
+src\app\dashboard\page.tsx.before-cleanup.backup
+
+===== PACKAGE.JSON =====
+{
+  "name": "temp-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "next": "16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+
+===== NEXT.CONFIG =====
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+
+===== TSCONFIG =====
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+
+===== ENVIRONMENT VARIABLES =====
+AIRTABLE_TOKEN = [HIDDEN]
+AIRTABLE_BASE_ID = [HIDDEN]
+
+===== GIT STATUS =====
+ M src/app/api/candidates/route.ts
+ M src/app/dashboard/page.tsx
+
+===== RECENT COMMITS =====
+4abe6f4 fix: Add Experience Match and Skills Match to report modal
+7260ef0 fix: Add Experience Match and Skills Match to report modal
+d464e7f fix: Show Experience Match and Skills Match as numbers (not percentages)
+8445a6d feat: Add Experience Match and Skills Match to report modal
+26edbc1 fix: Use correct Airtable field names for Experience Match Score and Skills Match Score
+3c97e6f feat: Add Experience Match and Skills Match scores to report modal
+2e31050 Add GET method to API for dashboard (POST unchanged for form)
+494c379 Update n8n webhook URL
+b71bc6f Fix Airtable attachment upload format
+74a43f9 Fix API route - add quotes to URL

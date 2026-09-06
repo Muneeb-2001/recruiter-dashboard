@@ -1,0 +1,836 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+type Candidate = {
+  id: string;
+  name: string;
+  email: string;
+  area: string;
+  attachment: any[];
+  date: string;
+  status: string;
+
+  score: number | null;
+  recommendation: string;
+  summary: string;
+  strength: string;
+  gap: string;
+  experience: string;
+  skills: string;
+  skillsMatchScore: number | string | null;
+  languageFitScore: number | string | null;
+
+  seniority: string;
+  languageFit: string;
+  locationTimezoneFit: string;
+  salaryRateFit: string;
+
+  skillsMatch: string;
+  experienceMatch: string;
+  seniorityMatch: string;
+
+  risks: string;
+  redFlags: string;
+  missingInformation: string;
+  interviewQuestions: string;
+
+  resumeText: string;
+};
+
+function formatDateTime(value: string) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export default function DashboardPage() {
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selected, setSelected] = useState<Candidate | null>(null);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("All");
+
+  async function loadCandidates() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await fetch("/api/candidates", {
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Unable to load candidates.");
+      }
+
+      setCandidates(data.candidates || []);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load candidates."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadCandidates();
+  }, []);
+
+  const stats = useMemo(() => {
+    const scored = candidates.filter(
+      (candidate) => typeof candidate.score === "number"
+    );
+
+    const average =
+      scored.length > 0
+        ? scored.reduce(
+            (sum, candidate) => sum + Number(candidate.score),
+            0
+          ) / scored.length
+        : null;
+
+    return {
+      total: candidates.length,
+      scored: scored.length,
+      average,
+    };
+  }, [candidates]);
+
+  const filteredCandidates = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return candidates.filter((candidate) => {
+      const matchesSearch =
+        !query ||
+        candidate.name.toLowerCase().includes(query) ||
+        candidate.email.toLowerCase().includes(query) ||
+        candidate.area.toLowerCase().includes(query);
+
+      const recommendation =
+        candidate.recommendation.toLowerCase();
+
+      let matchesFilter = true;
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [candidates, search, filter]);
+
+  function formatCandidateDate(value: string) {
+    if (!value) return "—";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat("en-US", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(date);
+  }
+
+  function scoreClass(score: number | null) {
+    if (score === null) {
+      return "bg-slate-100 text-slate-600";
+    }
+
+    if (score >= 8) {
+      return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+    }
+
+    if (score >= 6) {
+      return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
+    }
+
+    return "bg-red-50 text-red-700 ring-1 ring-red-200";
+  }
+
+  function recommendationClass(value: string) {
+    const text = value.toLowerCase();
+
+    if (
+      text.includes("yes") ||
+      text.includes("shortlist")
+    ) {
+      return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+    }
+
+    if (
+      text.includes("maybe") ||
+      text.includes("review")
+    ) {
+      return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
+    }
+
+    if (text.includes("reject")) {
+      return "bg-red-50 text-red-700 ring-1 ring-red-200";
+    }
+
+    return "bg-slate-100 text-slate-600";
+  }
+
+  function initials(name: string) {
+    if (!name) return "?";
+
+    return name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase();
+  }
+
+  return (
+    <main className="min-h-screen bg-[#f7f8fc] text-slate-900">
+      {/* Sidebar */}
+      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-200 bg-white lg:flex lg:flex-col">
+        <div className="flex h-20 items-center border-b border-slate-100 px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-lg shadow-blue-600/20">
+              ATS
+            </div>
+
+            <div>
+              <p className="font-bold text-slate-900">
+                Recruitment
+              </p>
+              <p className="text-xs text-slate-400">
+                Talent workspace
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <nav className="flex-1 space-y-2 px-4 py-6">
+          <div className="flex items-center gap-3 rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
+            <span>▦</span>
+            Dashboard
+          </div>
+
+          <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-500">
+            <span>◉</span>
+            Candidates
+          </div>
+
+          <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-500">
+            <span>✓</span>
+            Evaluations
+          </div>
+        </nav>
+
+        <div className="border-t border-slate-100 p-4">
+          <a
+            href="/"
+            className="flex items-center justify-center rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+          >
+            Candidate Application
+          </a>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <div className="lg:pl-64">
+        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+          <div className="flex h-20 items-center justify-between px-5 md:px-8">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
+                Recruitment
+              </p>
+
+              <h1 className="mt-1 text-xl font-bold tracking-tight md:text-2xl">
+                Recruiter Dashboard
+              </h1>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={loadCandidates}
+                disabled={loading}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                {loading ? "Refreshing..." : "↻ Refresh"}
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div className="mx-auto max-w-[1500px] px-5 py-7 md:px-8">
+          {error && (
+            <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <strong>Error:</strong> {error}
+            </div>
+          )}
+
+          {/* Welcome */}
+          <section className="mb-7">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+              Overview
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Monitor applications and review ATS evaluation results.
+            </p>
+          </section>
+
+          {/* Stats */}
+          <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              title="Total candidates"
+              value={stats.total}
+              description="All applications"
+              icon="◉"
+            />
+
+
+          </section>
+
+          {/* Candidates section */}
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            {/* Section header */}
+            <div className="border-b border-slate-200 p-5 md:p-6">
+              <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    Candidates
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Live candidate data from Airtable.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  {/* Search */}
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                      ⌕
+                    </span>
+
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search candidates..."
+                      className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100 sm:w-64"
+                    />
+                  </div>
+
+                  {/* Filter */}
+                  <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  >
+                    <option>All</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="flex min-h-[300px] items-center justify-center">
+                <div className="text-center">
+                  <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+
+                  <p className="font-semibold text-slate-700">
+                    Loading candidates
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-400">
+                    Fetching the latest Airtable data...
+                  </p>
+                </div>
+              </div>
+            ) : filteredCandidates.length === 0 ? (
+              <div className="flex min-h-[300px] items-center justify-center px-6 text-center">
+                <div>
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-400">
+                    ◉
+                  </div>
+
+                  <h3 className="font-bold text-slate-800">
+                    No candidates found
+                  </h3>
+
+                  <p className="mt-2 text-sm text-slate-500">
+                    Try changing your search or filter.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Desktop table */}
+                <div className="hidden overflow-x-auto lg:block">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50/70 text-left">
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Candidate
+                        </th>
+
+                        <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Date
+                        </th>
+
+                        <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Area
+                        </th>
+
+                        <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">
+                          ATS Score
+                        </th>
+
+                        <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Recommendation
+                        </th>
+
+                        <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Date / Time
+                        </th>
+
+                        <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredCandidates.map((candidate) => (
+                        <tr
+                          key={candidate.id}
+                          className="transition hover:bg-slate-50/70"
+                        >
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-sm font-bold text-blue-600">
+                                {initials(candidate.name)}
+                              </div>
+
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold text-slate-900">
+                                  {candidate.name || "Unnamed"}
+                                </p>
+
+                                <p className="mt-1 truncate text-xs text-slate-500">
+                                  {candidate.email || "No email"}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="px-4 py-5">
+                            <span className="text-sm font-medium text-slate-600">
+                              {formatCandidateDate(candidate.date)}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-5">
+                            <span className="text-sm font-medium text-slate-600">
+                              {candidate.area || "—"}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-5">
+                            <span
+                              className={`inline-flex min-w-[52px] items-center justify-center rounded-lg px-3 py-1.5 text-sm font-bold ${scoreClass(
+                                candidate.score
+                              )}`}
+                            >
+                              {candidate.score ?? "—"}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-5">
+                            {candidate.recommendation ? (
+                              <span
+                                className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${recommendationClass(
+                                  candidate.recommendation
+                                )}`}
+                              >
+                                {candidate.recommendation || "—"}
+                              </span>
+                            ) : null}
+                          </td>
+
+                          <td className="px-6 py-5 text-right">
+                            <button
+                              onClick={() => setSelected(candidate)}
+                              className="rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-blue-600"
+                            >
+                              View report
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="space-y-3 p-4 lg:hidden">
+                  {filteredCandidates.map((candidate) => (
+                    <div
+                      key={candidate.id}
+                      className="rounded-2xl border border-slate-200 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-sm font-bold text-blue-600">
+                            {initials(candidate.name)}
+                          </div>
+
+                          <div>
+                            <p className="font-bold">
+                              {candidate.name || "Unnamed"}
+                            </p>
+
+                            <p className="text-xs text-slate-500">
+                              {candidate.email || "No email"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`rounded-lg px-3 py-1.5 text-sm font-bold ${scoreClass(
+                            candidate.score
+                          )}`}
+                        >
+                          {candidate.score ?? "—"}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 text-xs text-slate-500">
+                        {formatCandidateDate(candidate.date)}
+                      </div>
+
+                      <div className="mt-4 flex items-center justify-between">
+                        {candidate.recommendation ? (
+                          <span
+                            className={`rounded-full px-3 py-1.5 text-xs font-bold ${recommendationClass(
+                              candidate.recommendation
+                            )}`}
+                          >
+                            {candidate.recommendation || "—"}
+                          </span>
+                        ) : (
+                          <span />
+                        )}
+
+                        <button
+                          onClick={() => setSelected(candidate)}
+                          className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white"
+                        >
+                          View report
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      </div>
+
+      {/* Candidate report modal */}
+      {selected && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setSelected(null);
+            }
+          }}
+        >
+          <div className="mx-auto my-6 max-w-5xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+            {/* Modal header */}
+            <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-6 py-5 md:px-8">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-lg font-bold text-blue-600">
+                    {initials(selected.name)}
+                  </div>
+
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 md:text-2xl">
+                      {selected.name || "Unnamed candidate"}
+                    </h2>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      {selected.email || "—"}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
+                      <span>
+                        Date: {formatCandidateDate(selected.date)}
+                      </span>
+
+                      {selected.status ? (
+                        <span>
+                          Status: {selected.status}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setSelected(null)}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl text-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Close report"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 md:p-8">
+              {/* Score overview */}
+              <div className="grid gap-4 md:grid-cols-3">
+                <ReportCard
+                  title="ATS Score"
+                  value={
+                    selected.score === null
+                      ? ""
+                      : `${selected.score}/10`
+                  }
+                  highlight
+                />
+
+                <ReportCard
+                  title="Recommendation"
+                  value={selected.recommendation}
+                />
+
+                <ReportCard
+                  title="Area"
+                  value={selected.area || "—"}
+                />
+              </div>
+
+              {/* Main report */}
+              <div className="mt-8 space-y-6">
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <ReportSection
+                    title="Summary"
+                    value={selected.summary}
+                  />
+
+                  <ReportSection
+                    title="Strength"
+                    value={selected.strength}
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <ReportSection
+                    title="Gap"
+                    value={selected.gap}
+                  />
+
+                  <ReportSection
+                    title="Experience"
+                    value={selected.experience}
+                  />
+                </div>
+
+                <ReportSection
+                  title="Skills"
+                  value={selected.skills}
+                />
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <ReportCard
+                    title="Skills Match Score"
+                    value={
+                      selected.skillsMatchScore === null ||
+                      selected.skillsMatchScore === undefined ||
+                      selected.skillsMatchScore === ""
+                        ? ""
+                        : String(selected.skillsMatchScore)
+                    }
+                  />
+
+                  <ReportCard
+                    title="Experience Match"
+                    value={selected.experienceMatch || ""}
+                  />
+
+                  <ReportCard
+                    title="Language Fit Score"
+                    value={
+                      selected.languageFitScore === null ||
+                      selected.languageFitScore === undefined ||
+                      selected.languageFitScore === ""
+                        ? ""
+                        : String(selected.languageFitScore)
+                    }
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <ReportCard
+                    title="Date"
+                    value={selected.date || ""}
+                  />
+
+                  <ReportCard
+                    title="Status"
+                    value={selected.status || ""}
+                  />
+                </div>
+
+                {selected.attachment?.length > 0 && (
+                  <section>
+                    <h3 className="mb-2 text-lg font-bold">
+                      Attachment
+                    </h3>
+
+                    <div className="rounded-xl bg-slate-50 p-4">
+                      {selected.attachment.map((file: any, index: number) => (
+                        <a
+                          key={index}
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block font-semibold text-blue-600 hover:underline"
+                        >
+                          {file.filename || "View CV / Resume"}
+                        </a>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  description,
+  icon,
+  accent = "slate",
+}: {
+  title: string;
+  value: string | number;
+  description: string;
+  icon: string;
+  accent?: "slate" | "green" | "amber" | "blue";
+}) {
+  const iconClasses = {
+    slate: "bg-slate-100 text-slate-600",
+    green: "bg-emerald-50 text-emerald-600",
+    amber: "bg-amber-50 text-amber-600",
+    blue: "bg-blue-50 text-blue-600",
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-500">
+            {title}
+          </p>
+
+          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
+            {value}
+          </p>
+        </div>
+
+        <div
+          className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold ${iconClasses[accent]}`}
+        >
+          {icon}
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs text-slate-400">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function ReportCard({
+  title,
+  value,
+  highlight = false,
+}: {
+  title: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-5 ${
+        highlight
+          ? "border-blue-100 bg-blue-50/70"
+          : "border-slate-200 bg-slate-50"
+      }`}
+    >
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+        {title}
+      </p>
+
+      <p
+        className={`mt-2 text-lg font-bold ${
+          highlight ? "text-blue-700" : "text-slate-900"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ReportSection({
+  title,
+  value,
+}: {
+  title: string;
+  value: string;
+}) {
+  if (!value) return null;
+
+  return (
+    <section>
+      <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-slate-500">
+        {title}
+      </h3>
+
+      <div className="whitespace-pre-wrap rounded-2xl border border-slate-200 bg-slate-50/70 p-5 text-sm leading-7 text-slate-700">
+        {value}
+      </div>
+    </section>
+  );
+}

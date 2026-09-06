@@ -1,0 +1,369 @@
+import { NextRequest, NextResponse } from "next/server";
+
+const AIRTABLE_API_URL = "https://api.airtable.com/v0";
+
+export async function GET() {
+  try {
+    const token = process.env.AIRTABLE_API_KEY || process.env.AIRTABLE_TOKEN;
+    const baseId = process.env.AIRTABLE_BASE_ID;
+    const tableName = "Status Update";
+
+    if (!token) {
+      return NextResponse.json(
+        { success: false, error: "Airtable token is not configured." },
+        { status: 500 }
+      );
+    }
+
+    if (!baseId) {
+      return NextResponse.json(
+        { success: false, error: "Airtable base ID is not configured." },
+        { status: 500 }
+      );
+    }
+
+    const allRecords: any[] = [];
+    let offset: string | undefined;
+
+    do {
+      const url = new URL(
+        `${AIRTABLE_API_URL}/${baseId}/${encodeURIComponent(tableName)}`
+      );
+
+      if (offset) {
+        url.searchParams.set("offset", offset);
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+
+        console.error("Airtable API error:", response.status, errorText);
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Airtable API error ${response.status}: ${errorText}`,
+          },
+          { status: response.status }
+        );
+      }
+
+      const data = await response.json();
+
+      if (Array.isArray(data.records)) {
+        allRecords.push(...data.records);
+      }
+
+      offset = data.offset;
+    } while (offset);
+
+    const candidates = allRecords.map((record: any) => {
+      const fields = record.fields || {};
+
+      return {
+        id: record.id,
+
+        name: fields.Name ?? fields.name ?? "",
+        email: fields.Email ?? fields.email ?? "",
+        area: fields.Area ?? fields.area ?? "",
+
+        attachment: fields.Attachment ?? [],
+
+        date: fields.Date ?? fields.date ?? "",
+
+        status: fields.Status ?? fields.status ?? "",
+
+        interviewStatus:
+          fields["Interview Status"] ??
+          fields.interviewStatus ??
+          "",
+
+        score:
+          fields.Score ??
+          fields["ATS Score"] ??
+          fields["ATS score"] ??
+          null,
+
+        atsScore:
+          fields.Score ??
+          fields["ATS Score"] ??
+          fields["ATS score"] ??
+          null,
+
+        recommendation:
+          fields.Recommendation ??
+          fields.recommendation ??
+          "",
+
+        summary:
+          fields.Summary ??
+          fields.summary ??
+          "",
+
+        strength:
+          fields.Strength ??
+          fields.Strengths ??
+          fields["Key Strengths"] ??
+          "",
+
+        strengths:
+          fields.Strength ??
+          fields.Strengths ??
+          fields["Key Strengths"] ??
+          "",
+
+        gap:
+          fields.Gap ??
+          fields.Gaps ??
+          fields.Weaknesses ??
+          "",
+
+        gaps:
+          fields.Gap ??
+          fields.Gaps ??
+          fields.Weaknesses ??
+          "",
+
+        skills:
+          fields.Skills ??
+          fields["Skills Match"] ??
+          "",
+
+        skillsMatchScore:
+          fields["Skills Match Score"] ??
+          fields["Skill Match Score"] ??
+          fields["Skill Match"] ??
+          null,
+
+        skillMatchScore:
+          fields["Skills Match Score"] ??
+          fields["Skill Match Score"] ??
+          fields["Skill Match"] ??
+          null,
+
+        experience:
+          fields.Experience ??
+          "",
+
+        experienceMatch:
+          fields["Experience Match Score"] ??
+          fields["Experience Match"] ??
+          null,
+
+        experienceMatchScore:
+          fields["Experience Match Score"] ??
+          fields["Experience Match"] ??
+          null,
+
+        languageFitScore:
+          fields["Language Fit"] ??
+          fields["Language Fit Score"] ??
+          null,
+
+        rawFields: fields,
+      };
+    });
+
+    console.log(
+      `Airtable records fetched: ${allRecords.length}`
+    );
+
+    return NextResponse.json({
+      success: true,
+      candidates,
+      total: candidates.length,
+    });
+  } catch (error) {
+    console.error("Candidates API error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to load candidates.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+const N8N_WEBHOOK_URL = "https://n8n.domingogarcia.info/webhook/a91cd0c0-7a4b-498a-b186-a7785f52eff1";
+
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData();
+
+    const name = String(formData.get("name") || "").trim();
+    const email = String(formData.get("email") || "").trim();
+    const area = String(formData.get("area") || "").trim();
+    const cvFile = formData.get("cv");
+
+    if (!name || !email || !area) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Name, email, and area are required",
+        },
+        { status: 400 }
+      );
+    }
+
+    const token =
+      process.env.AIRTABLE_API_KEY ||
+      process.env.AIRTABLE_TOKEN;
+
+    const baseId = process.env.AIRTABLE_BASE_ID;
+    const tableName =
+      process.env.AIRTABLE_TABLE_NAME || "Status Update";
+
+    if (!token || !baseId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Airtable configuration missing",
+        },
+        { status: 500 }
+      );
+    }
+
+    const recordData: Record<string, any> = {
+      Name: name,
+      Email: email,
+      Area: area,
+      Date: new Date().toISOString(),
+      Status: "Application Received",
+    };
+
+
+    const table = encodeURIComponent(tableName);
+
+    const airtableResponse = await fetch(
+      `${AIRTABLE_API_URL}/${baseId}/${table}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fields: recordData,
+        }),
+      }
+    );
+
+    const airtableData = await airtableResponse.json();
+
+    if (!airtableResponse.ok) {
+      console.error(
+        "Airtable POST error:",
+        airtableResponse.status,
+        airtableData
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            airtableData.error?.message ||
+            "Airtable error",
+        },
+        { status: airtableResponse.status }
+      );
+    }
+
+    const airtableRecordId = airtableData.id;
+    const timestamp = new Date().toISOString();
+    const cvUploaded =
+      cvFile instanceof File && cvFile.size > 0;
+
+    const webhookPayload = {
+      name,
+      email,
+      area,
+      airtableRecordId,
+      timestamp,
+      cvUploaded,
+      source: "ats-form",
+    };
+
+    let webhookResponse: Response;
+
+    try {
+      webhookResponse = await fetch(N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(webhookPayload),
+      });
+    } catch (webhookError) {
+      console.error(
+        "n8n webhook connection error:",
+        webhookError
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: "Application saved to Airtable.",
+        data: airtableData,
+        airtableRecordId,
+        webhookSent: false,
+        webhookError: "Unable to connect to n8n webhook.",
+      });
+    }
+
+    const webhookText = await webhookResponse.text();
+
+    if (!webhookResponse.ok) {
+      console.error(
+        "n8n webhook error:",
+        webhookResponse.status,
+        webhookText
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: "Application saved to Airtable.",
+        data: airtableData,
+        airtableRecordId,
+        webhookSent: false,
+        webhookStatus: webhookResponse.status,
+      });
+    }
+
+    console.log("n8n webhook payload sent:", webhookPayload);
+
+    return NextResponse.json({
+      success: true,
+      message: "Application submitted successfully",
+      data: airtableData,
+      airtableRecordId,
+      webhookSent: true,
+    });
+  } catch (error) {
+    console.error("Candidate submission error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Internal server error",
+      },
+      { status: 500 }
+    );
+  }
+}
+

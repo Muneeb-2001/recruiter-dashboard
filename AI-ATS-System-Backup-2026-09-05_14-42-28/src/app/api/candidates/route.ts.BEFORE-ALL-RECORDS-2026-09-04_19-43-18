@@ -1,0 +1,122 @@
+﻿import { NextResponse } from 'next/server';
+
+export async function GET() {
+  try {
+    const AIRTABLE_TOKEN = process.env.AIRTABLE_API_KEY || process.env.AIRTABLE_TOKEN;
+    const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
+
+    if (!AIRTABLE_TOKEN || !AIRTABLE_BASE_ID) {
+      return NextResponse.json({ success: false, error: 'Missing Airtable environment variables' }, { status: 500 });
+    }
+
+    const tableName = encodeURIComponent('Status Update');
+    let allRecords: any[] = [];
+    let offset = '';
+
+    do {
+      let url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tableName}`;
+      if (offset) {
+        url += `?offset=${encodeURIComponent(offset)}`;
+      }
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return NextResponse.json({ success: false, error: JSON.stringify(errorData) }, { status: response.status });
+      }
+
+      const data = await response.json();
+      if (data.records) {
+        allRecords = allRecords.concat(data.records);
+      }
+      offset = data.offset || '';
+    } while (offset);
+
+    // Group records by clean base username to link variants like khan20019 and muneebkhan20019
+    const grouped: Record<string, any[]> = {};
+
+    for (const rec of allRecords) {
+      const rawEmail = (rec.fields?.Email || rec.fields?.email || '').toString().trim().toLowerCase();
+      // Extract main identifier tag (e.g. khan20019)
+      const match = rawEmail.match(/([a-z0-9]+20019)/i) || rawEmail.match(/^([^@]+)/);
+      const groupKey = match ? match[1] : rec.id;
+
+      if (!grouped[groupKey]) {
+        grouped[groupKey] = [];
+      }
+      grouped[groupKey].push(rec);
+    }
+
+    const candidates = Object.keys(grouped).map((groupKey) => {
+      const records = grouped[groupKey];
+
+      // Sort so records containing populated evaluation data take priority
+      records.sort((a, b) => {
+        const scoreA = Number(a.fields?.Score ?? a.fields?.['ATS Score'] ?? -1);
+        const scoreB = Number(b.fields?.Score ?? b.fields?.['ATS Score'] ?? -1);
+        return scoreB - scoreA;
+      });
+
+      const mergedFields: Record<string, any> = {};
+      for (const r of records) {
+        const f = r.fields || {};
+        for (const [k, v] of Object.entries(f)) {
+          if (mergedFields[k] === undefined || mergedFields[k] === null || mergedFields[k] === '') {
+            mergedFields[k] = v;
+          }
+        }
+      }
+
+      const primaryRecord = records[0];
+
+      const getVal = (...keys: string[]) => {
+        for (const k of keys) {
+          if (mergedFields[k] !== undefined && mergedFields[k] !== null && mergedFields[k] !== '') {
+            return mergedFields[k];
+          }
+        }
+        return undefined;
+      };
+
+      const scoreVal = getVal('Score', 'ATS Score');
+      const parsedScore = scoreVal !== undefined ? Number(scoreVal) : undefined;
+
+      const skillVal = getVal('Skills Match Score', 'Skill Match Score', 'Skill Match');
+      const expVal = getVal('Experience Match Score', 'Experience Match');
+
+      return {
+        id: primaryRecord.id,
+        name: getVal('Name', 'name') || 'N/A',
+        email: getVal('Email', 'email') || primaryRecord.fields?.Email || '',
+        area: getVal('Area', 'area') || '',
+        status: getVal('Status', 'status') || 'New',
+        interviewStatus: getVal('Interview Status') || '',
+        resumeText: getVal('Resume Text') || '',
+        date: mergedFields.Date || primaryRecord.createdTime,
+        attachment: mergedFields.Attachment || [],
+
+        atsScore: isNaN(Number(parsedScore)) ? undefined : parsedScore,
+        recommendation: getVal('Recommendation') || '',
+        summary: getVal('Summary', 'AI Summary') || '',
+        strengths: getVal('Strength', 'Strengths', 'Key Strengths') || '',
+        gaps: getVal('Gap', 'Gaps', 'Weaknesses') || '',
+        skillMatchScore: skillVal !== undefined && !isNaN(Number(skillVal)) ? Number(skillVal) : undefined,
+        experienceMatchScore: expVal !== undefined && !isNaN(Number(expVal)) ? Number(expVal) : undefined,
+
+        rawFields: mergedFields,
+      };
+    });
+
+    return NextResponse.json({ success: true, candidates });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message || 'Server error' }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  return GET();
+}
