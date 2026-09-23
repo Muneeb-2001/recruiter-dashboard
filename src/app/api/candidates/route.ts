@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 
 const AIRTABLE_API_URL = "https://api.airtable.com/v0";
 
@@ -6,7 +6,7 @@ export async function GET() {
   try {
     const token = process.env.AIRTABLE_API_KEY || process.env.AIRTABLE_TOKEN;
     const baseId = process.env.AIRTABLE_BASE_ID;
-    const tableName = "Status Update";
+    const tableName = "Status Update (HST)";
 
     if (!token) {
       return NextResponse.json(
@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
 
     const baseId = process.env.AIRTABLE_BASE_ID;
     const tableName =
-      process.env.AIRTABLE_TABLE_NAME || "Status Update";
+      process.env.AIRTABLE_TABLE_NAME || "Status Update (HST)";
 
     if (!token || !baseId) {
       return NextResponse.json(
@@ -399,6 +399,7 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
 
 
 
