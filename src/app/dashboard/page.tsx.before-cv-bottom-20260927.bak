@@ -24,7 +24,7 @@ type Candidate = {
 };
 
 function formatDate(value: string) {
-  if (!value) return "✕";
+  if (!value) return "â€”";
   const date = new Date(value);
   if (isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-US", {
@@ -154,33 +154,33 @@ export default function DashboardPage() {
             <p style={styles.sidebarSubtitle}>Talent workspace</p>
           </div>
         </div>
-        <div style={{...styles.statsRow, marginLeft: "20px"}}>
+        <div style={styles.statsRow}>
           <div style={{...styles.statCard, borderColor: primaryColor + '20'}}>
             <div style={styles.statHeader}>
               <p style={styles.statLabel}>Total candidates</p>
-              <span style={{...styles.statIcon, color: primaryColor}}></span>
+              <span style={{...styles.statIcon, color: primaryColor}}>?</span>
             </div>
             <p style={styles.statValue}>{stats.total}</p>
             <p style={styles.statDesc}>All applications</p>
           </div>
         </div>
-        <div style={{...styles.sidebarScoreGuide, marginLeft: '18px'}}>
+        <div style={styles.sidebarScoreGuide}>
           <p style={styles.sidebarGuideTitle}>ATS Score Guide</p>
           <div style={styles.sidebarGuideItem}>
             <span style={{...styles.sidebarDot, backgroundColor: '#10b981'}}></span>
-            <span style={styles.sidebarGuideText}><strong>85+</strong> Strong Match</span>
+            <span style={styles.sidebarGuideText}><strong>85â€”</strong> â€”</span>
           </div>
           <div style={styles.sidebarGuideItem}>
             <span style={{...styles.sidebarDot, backgroundColor: '#3b82f6'}}></span>
-            <span style={styles.sidebarGuideText}><strong>65–84</strong> Good Match</span>
+            <span style={styles.sidebarGuideText}><strong>65â€”</strong> â€”</span>
           </div>
           <div style={styles.sidebarGuideItem}>
             <span style={{...styles.sidebarDot, backgroundColor: '#f59e0b'}}></span>
-            <span style={styles.sidebarGuideText}><strong>50–64</strong> Moderate Match</span>
+            <span style={styles.sidebarGuideText}><strong>50â€”</strong> â€”</span>
           </div>
           <div style={styles.sidebarGuideItem}>
             <span style={{...styles.sidebarDot, backgroundColor: '#ef4444'}}></span>
-            <span style={styles.sidebarGuideText}><strong>Below 50</strong> Low Match</span>
+            <span style={styles.sidebarGuideText}><strong>Below 50</strong> â€”</span>
           </div>
         </div>
       </div>
@@ -193,7 +193,7 @@ export default function DashboardPage() {
             <h1 style={styles.headerTitle}>Recruiter Dashboard</h1>
           </div>
           <button onClick={loadCandidates} disabled={loading} style={{...styles.refreshBtn, borderColor: primaryColor + '40', color: primaryColor}}>
-            {loading ? "Refreshing..." : "Refresh"}
+            {loading ? "Refreshing..." : "? Refresh"}
           </button>
         </div>
 
@@ -205,7 +205,7 @@ export default function DashboardPage() {
             <p style={styles.sectionSubtitle}>Monitor applications and review ATS evaluation results.</p>
           </section>
 
-          <div style={{...styles.statsRow, marginLeft: "20px"}}>
+          <div style={styles.statsRow}>
             
           </div>
 
@@ -257,6 +257,7 @@ export default function DashboardPage() {
                       color: '#64748b',
                     }}
                   >
+                    ?
                   </span>
 
                   <input
@@ -294,7 +295,7 @@ export default function DashboardPage() {
                         lineHeight: 1,
                       }}
                     >
-                      ✕
+                      â€”
                     </button>
                   )}
                 </div>
@@ -335,7 +336,7 @@ export default function DashboardPage() {
                           : 'pointer',
                     }}
                   >
-                    ‹
+                    â€”
                   </button>
 
                   {visiblePages.map((page) => (
@@ -393,7 +394,7 @@ export default function DashboardPage() {
                           : 'pointer',
                     }}
                   >
-                    ›
+                    â€”
                   </button>
                 </div>
 
@@ -404,7 +405,7 @@ export default function DashboardPage() {
                     height: '38px',
                   }}
                 >
-                  <span style={styles.searchIcon}></span>
+                  <span style={styles.searchIcon}>?</span>
 
                   <input
                     value={search}
@@ -459,10 +460,10 @@ export default function DashboardPage() {
                           </div>
                         </td>
                         <td style={{...styles.td, whiteSpace: 'nowrap'}}>{formatDate(candidate.date)}</td>
-                        <td style={styles.td}>{candidate.area || "—"}</td>
+                        <td style={styles.td}>{candidate.area || "â€”"}</td>
                         <td style={styles.td}>
                           <span style={{...styles.scoreBadge, backgroundColor: getScoreColor(candidate.score) + '20', color: getScoreColor(candidate.score)}}>
-                            {candidate.score ?? "—"}
+                            {candidate.score ?? "â€”"}
                           </span>
                         </td>
                         <td style={styles.td}>
@@ -477,7 +478,7 @@ export default function DashboardPage() {
                             color: getStatusStyle(candidate.interviewStatus).color,
                             border: getStatusStyle(candidate.interviewStatus).border,
                           }}>
-                            {candidate.interviewStatus || "—"}
+                            {candidate.interviewStatus || "â€”"}
                           </span>
                         </td>
                         <td style={styles.tdAction}>
@@ -496,7 +497,7 @@ export default function DashboardPage() {
                               fontWeight: 600,
                               whiteSpace: 'nowrap',
                             }}>
-                              ✓ Sent
+                              ? Sent
                             </span>
                           ) : (
                             <button onClick={() => setInterviewCandidate(candidate)} style={{...styles.sendBtn, background: primaryColor, cursor: 'pointer', opacity: 1}}>
@@ -515,19 +516,7 @@ export default function DashboardPage() {
       </div>
 
 
-      {/* <span
-  style={{
-    display: 'block',
-    fontSize: '13px',
-    fontWeight: 800,
-    color: '#64748b',
-    textTransform: 'uppercase',
-    letterSpacing: '1.8px',
-    lineHeight: 1.3,
-  }}
->
-  Candidate Report
-</span> Modal */}
+      {/* Candidate Report Modal */}
       {selected && (
         <div
           style={styles.modalOverlay}
@@ -548,36 +537,30 @@ export default function DashboardPage() {
               }}
             >
               <div>
-                <div style={{ marginTop: '6px' }}>
-                  <div
-                    style={{
-                      fontSize: '16px',
-                      fontWeight: 700,
-                      color: '#334155',
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {selected.name || "Unnamed"}
-                  </div>
-                  <div
-                    style={{
-                      marginTop: '2px',
-                      fontSize: '13px',
-                      fontWeight: 400,
-                      color: '#94a3b8',
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {selected.email || "No email"}
-                  </div>
-                </div>
+                <h2
+                  style={{
+                    ...styles.modalTitle,
+                    color: primaryColor,
+                  }}
+                >
+                  Candidate Report
+                </h2>
+
+                <p
+                  style={{
+                    ...styles.modalText,
+                    marginTop: '4px',
+                  }}
+                >
+                  {selected.name || "Unnamed"} â€”{selected.email || "No email"}
+                </p>
               </div>
 
               <button
                 onClick={() => setSelected(null)}
                 style={styles.modalClose}
               >
-                ✕
+                â€”
               </button>
             </div>
 
@@ -610,7 +593,7 @@ export default function DashboardPage() {
                       color: getScoreColor(selected.score),
                     }}
                   >
-                    {selected.score ?? "—"}
+                    {selected.score ?? "â€”"}
                   </p>
                 </div>
 
@@ -632,7 +615,7 @@ export default function DashboardPage() {
                       color: '#0f172a',
                     }}
                   >
-                    {selected.recommendation || "—"}
+                    {selected.recommendation || "â€”"}
                   </p>
                 </div>
 
@@ -654,7 +637,7 @@ export default function DashboardPage() {
                       color: '#0f172a',
                     }}
                   >
-                    {selected.area || "—"}
+                    {selected.area || "â€”"}
                   </p>
                 </div>
               </div>
@@ -688,7 +671,7 @@ export default function DashboardPage() {
                       color: getScoreColor(selected.skillsMatchScore),
                     }}
                   >
-                    {selected.skillsMatchScore ?? "—"}
+                    {selected.skillsMatchScore ?? "â€”"}
                   </p>
                 </div>
 
@@ -712,164 +695,10 @@ export default function DashboardPage() {
                       color: getScoreColor(selected.experienceMatch),
                     }}
                   >
-                    {selected.experienceMatch ?? "—"}
+                    {selected.experienceMatch ?? "â€”"}
                   </p>
                 </div>
               </div>
-
-              {/* Summary */}
-              <div
-                style={{
-                  marginBottom: '18px',
-                  padding: '18px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#ffffff',
-                }}
-              >
-                <h3 style={styles.reportSectionTitle}>
-                  Summary
-                </h3>
-
-                <p
-                  style={{
-                    ...styles.reportText,
-                    lineHeight: 1.7,
-                    marginTop: '10px',
-                  }}
-                >
-                  {selected.summary || "No summary available."}
-                </p>
-              </div>
-
-              {/* Strengths */}
-              <div
-                style={{
-                  marginBottom: '18px',
-                  padding: '18px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#ffffff',
-                }}
-              >
-                <h3 style={styles.reportSectionTitle}>
-                  Strengths
-                </h3>
-
-                <div
-                  style={{
-                    marginTop: '12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '9px',
-                  }}
-                >
-                  {(selected.strength || "")
-                    .split(/\r?\n|(?<=\.)\s+(?=[A-Z])/)
-                    .map((item, index) => item.trim())
-                    .filter(Boolean)
-                    .map((item, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '10px',
-                          padding: '10px 12px',
-                          borderRadius: '8px',
-                          backgroundColor: '#f8fafc',
-                          color: '#334155',
-                          fontSize: '14px',
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        <span
-                          style={{
-                            color: '#10b981',
-                            fontWeight: 800,
-                            fontSize: '16px',
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          ✓
-                        </span>
-
-                        <span>{item}</span>
-                      </div>
-                    ))}
-
-                  {!selected.strength && (
-                    <p style={styles.reportText}>
-                      No strengths available.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Gaps */}
-              <div
-                style={{
-                  marginBottom: '4px',
-                  padding: '18px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#ffffff',
-                }}
-              >
-                <h3 style={styles.reportSectionTitle}>
-                  Gaps
-                </h3>
-
-                <div
-                  style={{
-                    marginTop: '12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '9px',
-                  }}
-                >
-                  {(selected.gap || "")
-                    .split(/\r?\n|(?<=\.)\s+(?=[A-Z])/)
-                    .map((item) => item.trim())
-                    .filter(Boolean)
-                    .map((item, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '10px',
-                          padding: '10px 12px',
-                          borderRadius: '8px',
-                          backgroundColor: '#f8fafc',
-                          color: '#334155',
-                          fontSize: '14px',
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        <span
-                          style={{
-                            color: '#ef4444',
-                            fontWeight: 800,
-                            fontSize: '16px',
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          ⚠
-                        </span>
-
-                        <span>{item}</span>
-                      </div>
-                    ))}
-
-                  {!selected.gap && (
-                    <p style={styles.reportText}>
-                      No gaps available.
-                    </p>
-                  )}
-                </div>
-              </div>
-
 
               {/* Candidate CV / Airtable Attachment */}
               <div
@@ -1043,6 +872,159 @@ export default function DashboardPage() {
                   </p>
                 )}
               </div>
+              {/* Summary */}
+              <div
+                style={{
+                  marginBottom: '18px',
+                  padding: '18px',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#ffffff',
+                }}
+              >
+                <h3 style={styles.reportSectionTitle}>
+                  Summary
+                </h3>
+
+                <p
+                  style={{
+                    ...styles.reportText,
+                    lineHeight: 1.7,
+                    marginTop: '10px',
+                  }}
+                >
+                  {selected.summary || "No summary available."}
+                </p>
+              </div>
+
+              {/* Strengths */}
+              <div
+                style={{
+                  marginBottom: '18px',
+                  padding: '18px',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#ffffff',
+                }}
+              >
+                <h3 style={styles.reportSectionTitle}>
+                  Strengths
+                </h3>
+
+                <div
+                  style={{
+                    marginTop: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '9px',
+                  }}
+                >
+                  {(selected.strength || "")
+                    .split(/\r?\n|(?<=\.)\s+(?=[A-Z])/)
+                    .map((item, index) => item.trim())
+                    .filter(Boolean)
+                    .map((item, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '10px',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          backgroundColor: '#f8fafc',
+                          color: '#334155',
+                          fontSize: '14px',
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: '#10b981',
+                            fontWeight: 800,
+                            fontSize: '16px',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          ?
+                        </span>
+
+                        <span>{item}</span>
+                      </div>
+                    ))}
+
+                  {!selected.strength && (
+                    <p style={styles.reportText}>
+                      No strengths available.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Gaps */}
+              <div
+                style={{
+                  marginBottom: '4px',
+                  padding: '18px',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#ffffff',
+                }}
+              >
+                <h3 style={styles.reportSectionTitle}>
+                  Gaps
+                </h3>
+
+                <div
+                  style={{
+                    marginTop: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '9px',
+                  }}
+                >
+                  {(selected.gap || "")
+                    .split(/\r?\n|(?<=\.)\s+(?=[A-Z])/)
+                    .map((item) => item.trim())
+                    .filter(Boolean)
+                    .map((item, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '10px',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          backgroundColor: '#f8fafc',
+                          color: '#334155',
+                          fontSize: '14px',
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: '#ef4444',
+                            fontWeight: 800,
+                            fontSize: '16px',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          â€”
+                        </span>
+
+                        <span>{item}</span>
+                      </div>
+                    ))}
+
+                  {!selected.gap && (
+                    <p style={styles.reportText}>
+                      No gaps available.
+                    </p>
+                  )}
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -1053,7 +1035,7 @@ export default function DashboardPage() {
           <div style={{...styles.modal, maxWidth: '480px', borderColor: primaryColor + '20'}} onClick={(e) => e.stopPropagation()}>
             <div style={{...styles.modalHeader, borderColor: primaryColor + '15'}}>
               <h2 style={{...styles.modalTitle, color: primaryColor}}>Send AI Interview Link?</h2>
-              <button onClick={() => setInterviewCandidate(null)} style={styles.modalClose}>✕</button>
+              <button onClick={() => setInterviewCandidate(null)} style={styles.modalClose}>â€”</button>
             </div>
             <div style={styles.modalBody}>
               <p style={styles.modalText}>Are you sure you want to send the AI interview link to this candidate?</p>
@@ -1678,25 +1660,6 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 12px rgba(18, 69, 89, 0.25)',
   },
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
