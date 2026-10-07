@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -1358,8 +1358,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '8px',
     fontSize: '14px',
     fontWeight: 'bold',
-    minWidth: '48px',
-    textAlign: 'center',
   },
   viewBtn: {
     padding: '8px 16px',
@@ -1614,7 +1612,6 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 12px rgba(18, 69, 89, 0.25)',
   },
 };
-
 
 
 
