@@ -35,7 +35,7 @@ function formatDate(value: string) {
 }
 
 function getScoreColor(score: number | null) {
-  if (score === null) return "#e2e8f0";
+  if (score === null) return "#7c3aed";
   if (score >= 85) return "#10b981";
   if (score >= 65) return "#3b82f6";
   if (score >= 50) return "#f59e0b";
@@ -54,15 +54,17 @@ function getInitials(name: string) {
 }
 
 function getStatusStyle(status: string | undefined) {
-  if (status === "Sent") {
-    return { backgroundColor: '#dbeafe', color: '#1e40af', border: '1px solid #bfdbfe' };
+  if (status === "Invitation Send" || status === "Interview Link Send") {
+    return { backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' };
   }
-  if (status === "Done") {
+  if (status === "Invitation Done") {
+    return { backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #86efac' };
+  }
+  if (status === "Interview Done") {
     return { backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #86efac' };
   }
   return { backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' };
 }
-
 export default function DashboardPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,17 +156,17 @@ export default function DashboardPage() {
             <p style={styles.sidebarSubtitle}>Talent workspace</p>
           </div>
         </div>
-        <div style={{...styles.statsRow, marginLeft: "20px"}}>
+        <div style={{...styles.statsRow, marginLeft: "-12px"}}>
           <div style={{...styles.statCard, borderColor: primaryColor + '20'}}>
-            <div style={styles.statHeader}>
+            <div style={{...styles.statHeader, justifyContent: "center", paddingLeft: "12px"}}>
               <p style={styles.statLabel}>Total candidates</p>
               <span style={{...styles.statIcon, color: primaryColor}}></span>
             </div>
-            <p style={styles.statValue}>{stats.total}</p>
-            <p style={styles.statDesc}>All applications</p>
+            <p style={{...styles.statValue, textAlign: "center", paddingLeft: "12px"}}>{stats.total}</p>
+            <p style={{...styles.statDesc, textAlign: "center", paddingLeft: "12px"}}>All applications</p>
           </div>
         </div>
-        <div style={{...styles.sidebarScoreGuide, marginLeft: '18px'}}>
+        <div style={{...styles.sidebarScoreGuide, marginLeft: '18px', marginTop: '4px'}}>
           <p style={styles.sidebarGuideTitle}>ATS Score Guide</p>
           <div style={styles.sidebarGuideItem}>
             <span style={{...styles.sidebarDot, backgroundColor: '#10b981'}}></span>
@@ -181,6 +183,10 @@ export default function DashboardPage() {
           <div style={styles.sidebarGuideItem}>
             <span style={{...styles.sidebarDot, backgroundColor: '#ef4444'}}></span>
             <span style={styles.sidebarGuideText}><strong>Below 50</strong> Low Match</span>
+          </div>
+          <div style={styles.sidebarGuideItem}>
+            <span style={{...styles.sidebarDot, backgroundColor: '#7c3aed'}}></span>
+            <span style={styles.sidebarGuideText}><strong>Duplicate Application</strong></span>
           </div>
         </div>
       </div>
@@ -199,15 +205,6 @@ export default function DashboardPage() {
 
         <div style={styles.content}>
           {error && <div style={styles.error}>{error}</div>}
-
-          <section style={styles.section}>
-            <h2 style={styles.sectionTitle}>Overview</h2>
-            <p style={styles.sectionSubtitle}>Monitor applications and review ATS evaluation results.</p>
-          </section>
-
-          <div style={{...styles.statsRow, marginLeft: "20px"}}>
-            
-          </div>
 
           {/* Candidates Table */}
           <div style={{...styles.tableCard, borderColor: primaryColor + '20'}}>
@@ -461,8 +458,8 @@ export default function DashboardPage() {
                         <td style={{...styles.td, whiteSpace: 'nowrap'}}>{formatDate(candidate.date)}</td>
                         <td style={styles.td}>{candidate.area || "—"}</td>
                         <td style={styles.td}>
-                          <span style={{...styles.scoreBadge, backgroundColor: getScoreColor(candidate.score) + '20', color: getScoreColor(candidate.score)}}>
-                            {candidate.score ?? "—"}
+                          <span style={{...styles.scoreBadge, backgroundColor: candidate.score === null ? '#ede9fe' : getScoreColor(candidate.score) + '20', color: getScoreColor(candidate.score)}}>
+                            {candidate.score ?? "Duplicate"}
                           </span>
                         </td>
                         <td style={styles.td}>
@@ -481,29 +478,28 @@ export default function DashboardPage() {
                           </span>
                         </td>
                         <td style={styles.tdAction}>
-                          {candidate.interviewStatus === "Sent" || candidate.interviewStatus === "Done" ? (
-                            <span style={{
-                              ...styles.sendBtn,
-                              background: '#10b981',
-                              cursor: 'default',
-                              opacity: 0.7,
-                              display: 'inline-block',
-                              textAlign: 'center',
-                              padding: '8px 14px',
-                              borderRadius: '8px',
-                              color: '#ffffff',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              whiteSpace: 'nowrap',
-                            }}>
-                              ✓ Sent
-                            </span>
-                          ) : (
-                            <button onClick={() => setInterviewCandidate(candidate)} style={{...styles.sendBtn, background: primaryColor, cursor: 'pointer', opacity: 1}}>
-                              Send link
-                            </button>
-                          )}
-                        </td>
+                          {candidate.interviewStatus === "Invitation Send" || candidate.interviewStatus === "Interview Link Send" || candidate.interviewStatus === "Invitation Done" || candidate.interviewStatus === "Interview Done" ? (
+  <span style={{
+    ...styles.sendBtn,
+    background: candidate.interviewStatus === "Interview Done" ? "#16a34a" : candidate.interviewStatus === "Invitation Done" ? "#22c55e" : "#d97706",
+    cursor: "not-allowed",
+    opacity: 0.85,
+    display: "inline-block",
+    textAlign: "center",
+    padding: "8px 14px",
+    borderRadius: "8px",
+    color: "#ffffff",
+    fontSize: "12px",
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+  }}>
+    {candidate.interviewStatus === "Interview Done" ? "✓ Interview Done" : candidate.interviewStatus === "Invitation Done" ? "✓ Invitation Done" : "✓ Invitation Sent"}
+  </span>
+) : (
+  <button onClick={() => setInterviewCandidate(candidate)} style={{...styles.sendBtn, background: primaryColor, cursor: "pointer", opacity: 1}}>
+    Send link
+  </button>
+)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1066,7 +1062,7 @@ export default function DashboardPage() {
                 <button onClick={async () => {
                   if (!interviewCandidate) return;
                   try {
-                    const response = await fetch("/api/interview/send", {
+                    const response = await fetch("https://n8n.domingogarcia.info/webhook/dc5cd16e-f565-4660-a365-0533087649f3", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
@@ -1077,14 +1073,14 @@ export default function DashboardPage() {
                       }),
                     });
                     const result = await response.json();
-                    if (!response.ok || !result.success) {
+                    if (!response.ok) {
                       console.error("Failed to send interview webhook:", result);
                       return;
                     }
                     setCandidates((prev) =>
                       prev.map((c) =>
                         c.id === interviewCandidate.id
-                          ? { ...c, interviewStatus: "Sent" }
+                          ? { ...c, interviewStatus: "Interview Link Send" }
                           : c
                       )
                     );
@@ -1105,73 +1101,51 @@ export default function DashboardPage() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: {
-    display: 'flex',
-    minHeight: '100vh',
-    backgroundColor: '#f1f5f9',
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+  container: {    minHeight: '100vh', background: 'radial-gradient(circle at 15% 10%, rgba(45,132,158,0.14), transparent 30%), linear-gradient(135deg, #eef7fa 0%, #f8fafc 48%, #e6f1f5 100%)', color: '#0f172a',
   },
-  sidebar: {
-    width: '256px',
-    backgroundColor: '#ffffff',
-    borderRight: '1px solid #e2e8f0',
-    display: 'flex',
-    flexDirection: 'column',
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+  sidebar: {    width: '256px', background: 'linear-gradient(180deg, #ffffff 0%, #f3f9fb 55%, #eaf4f7 100%)', borderRight: '1px solid #d5e5eb', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0, boxShadow: '8px 0 30px rgba(18,69,89,0.12)', zIndex: 10,
   },
-  sidebarHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '20px 24px',
-    borderBottom: '1px solid #f1f5f9',
+  sidebarHeader: {    display: 'flex', alignItems: 'center', gap: '13px', padding: '24px 24px', background: 'linear-gradient(135deg, #ffffff 0%, #e8f5f8 100%)', borderBottom: '1px solid #d7e8ee',
   },
-  logo: {
-    width: '40px',
-    height: '40px',
-    borderRadius: '12px',
-    color: '#ffffff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '14px',
-    fontWeight: 'bold',
-    boxShadow: '0 4px 12px rgba(18, 69, 89, 0.25)',
+  logo: {    width: '46px', height: '46px', borderRadius: '15px', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: '800', background: 'linear-gradient(135deg, #0d3f52 0%, #176b82 55%, #218da3 100%)', boxShadow: '0 10px 22px rgba(18,69,89,0.30)', letterSpacing: '0.5px',
   },
   sidebarTitle: {
-    fontSize: '16px',
-    fontWeight: 'bold',
+    fontSize: '17px',
+    fontWeight: '800',
     color: '#0f172a',
     margin: 0,
+    letterSpacing: '-0.2px',
   },
   sidebarSubtitle: {
     fontSize: '12px',
-    color: '#94a3b8',
-    margin: 0,
+    color: '#64748b',
+    margin: '3px 0 0',
+    fontWeight: '500',
   },
-  sidebarScoreGuide: {
-    padding: '18px 20px',
-    margin: '16px 16px 12px 16px',
-    borderRadius: '12px',
-    backgroundColor: '#f8fafc',
-    border: '1px solid #e2e8f0',
+  sidebarScoreGuide: {    padding: '18px 12px',
+    marginTop: '16px',
+    marginRight: '16px',
+    marginBottom: '12px',
+    marginLeft: '16px', borderRadius: '20px', background: 'linear-gradient(145deg, #ffffff 0%, #f2f9fb 100%)', border: '1px solid #cfe2ea', boxShadow: '0 14px 32px rgba(18,69,89,0.12)',
   },
   sidebarGuideTitle: {
-    fontSize: '14px',
-    fontWeight: 'bold',
-    color: '#124559',
+    fontSize: '15px',
+    fontWeight: 800,
+    color: '#174b60',
     margin: '0 0 12px 0',
-    letterSpacing: '0.3px',
+    letterSpacing: '0.2px',
   },
   sidebarGuideItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    padding: '5px 0',
+    gap: '8px',
+    padding: '8px 8px',
+    marginBottom: '4px',
+    borderRadius: '11px',
+    backgroundColor: '#ffffff',
+    border: '1px solid #edf2f7',
+    boxShadow: '0 3px 8px rgba(15, 23, 42, 0.07)',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
   },
   sidebarDot: {
     display: 'inline-block',
@@ -1184,21 +1158,9 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '14px',
     color: '#475569',
   },
-  mainContent: {
-    marginLeft: '256px',
-    flex: 1,
+  mainContent: {    marginLeft: '256px', flex: 1, minHeight: '100vh', background: 'radial-gradient(circle at 90% 5%, rgba(33,141,163,0.10), transparent 28%), linear-gradient(180deg, #edf6f9 0%, #f8fafc 55%, #eef5f7 100%)',
   },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '20px 32px',
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderBottom: '1px solid #e2e8f0',
-    backdropFilter: 'blur(8px)',
-    position: 'sticky',
-    top: 0,
-    zIndex: 30,
+  header: {    height: '96px', padding: '0 38px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(14px)', borderBottom: '1px solid #d7e6ec', boxShadow: '0 6px 24px rgba(18,69,89,0.08)',
   },
   headerBadge: {
     fontSize: '11px',
@@ -1257,14 +1219,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '32px',
     flexWrap: 'wrap',
   },
-  statCard: {
-    flex: '0 0 auto',
-    padding: '20px 24px',
-    borderRadius: '16px',
-    backgroundColor: '#ffffff',
-    border: '1px solid',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-    minWidth: '200px',
+  statCard: {    width: '100%', boxSizing: 'border-box', padding: '22px 24px', borderRadius: '20px', background: 'linear-gradient(145deg, #ffffff 0%, #edf8fb 100%)', borderWidth: '1px', borderStyle: 'solid', borderColor: '#c9e1ea', boxShadow: '0 14px 32px rgba(18,69,89,0.14)',
   },
   statHeader: {
     display: 'flex',
@@ -1272,31 +1227,28 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
   },
   statLabel: {
-    fontSize: '14px',
-    fontWeight: 500,
-    color: '#64748b',
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#526b82',
     margin: 0,
+    letterSpacing: '0.1px',
   },
   statIcon: {
     fontSize: '18px',
   },
   statValue: {
-    fontSize: '32px',
-    fontWeight: 'bold',
+    fontSize: '30px',
+    fontWeight: 800,
     color: '#0f172a',
-    margin: '8px 0 4px 0',
+    margin: '8px 0 2px 0',
+    letterSpacing: '-1px',
   },
   statDesc: {
     fontSize: '12px',
     color: '#94a3b8',
     margin: 0,
   },
-  tableCard: {
-    borderRadius: '16px',
-    backgroundColor: '#ffffff',
-    border: '1px solid',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-    overflow: 'hidden',
+  tableCard: {    background: 'rgba(255,255,255,0.98)', borderWidth: '1px', borderStyle: 'solid', borderColor: '#d4e4ea', borderRadius: '22px', overflow: 'hidden', boxShadow: '0 18px 45px rgba(18,69,89,0.12)', backdropFilter: 'blur(10px)',
   },
   tableHeader: {
     display: 'flex',
@@ -1348,15 +1300,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#f8fafc',
     borderBottom: '1px solid',
   },
-  th: {
-    padding: '12px 16px',
-    textAlign: 'left',
-    fontSize: '11px',
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    color: '#94a3b8',
-    whiteSpace: 'nowrap',
+  th: {    padding: '15px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 800, color: '#527187', background: 'linear-gradient(180deg, #eef7fa 0%, #e4f0f4 100%)', borderBottom: '1px solid #d2e3e9', letterSpacing: '0.6px',
   },
   thAction: {
     padding: '12px 16px',
@@ -1371,11 +1315,7 @@ const styles: Record<string, React.CSSProperties> = {
   tr: {
     borderBottom: '1px solid #f1f5f9',
   },
-  td: {
-    padding: '12px 16px',
-    verticalAlign: 'middle',
-    fontSize: '14px',
-    color: '#0f172a',
+  td: {    padding: '16px 18px', fontSize: '14px', color: '#172033', borderBottom: '1px solid #e8f0f3', backgroundColor: 'rgba(255,255,255,0.90)',
   },
   tdAction: {
     padding: '12px 16px',
@@ -1412,6 +1352,9 @@ const styles: Record<string, React.CSSProperties> = {
   scoreBadge: {
     display: 'inline-block',
     padding: '4px 12px',
+    minWidth: '64px',
+    textAlign: 'center',
+    boxSizing: 'border-box',
     borderRadius: '8px',
     fontSize: '14px',
     fontWeight: 'bold',
@@ -1428,14 +1371,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     whiteSpace: 'nowrap',
   },
-  sendBtn: {
-    padding: '8px 14px',
-    borderRadius: '8px',
-    color: '#ffffff',
-    border: 'none',
-    fontSize: '12px',
-    fontWeight: 600,
-    whiteSpace: 'nowrap',
+  sendBtn: {    border: 'none', borderRadius: '11px', padding: '9px 17px', fontSize: '12px', fontWeight: 700, color: '#ffffff', boxShadow: '0 6px 16px rgba(18,69,89,0.22)', transition: 'transform 0.2s ease, box-shadow 0.2s ease',
   },
   statusBadge: {
     padding: '6px 14px',
@@ -1678,6 +1614,48 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 12px rgba(18, 69, 89, 0.25)',
   },
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
