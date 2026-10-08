@@ -1,93 +1,82 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 
-const SESSION_MAX_AGE = 60 * 60 * 8;
-
-function base64UrlEncode(buffer: ArrayBuffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-
-  return btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
-
-async function createSignature(timestamp: string, secret: string) {
-  const encoder = new TextEncoder();
-
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    {
-      name: "HMAC",
-      hash: "SHA-256",
-    },
-    false,
-    ["sign"]
-  );
-
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    encoder.encode(timestamp)
-  );
-
-  return base64UrlEncode(signature);
-}
-
-async function isValidSession(token: string | undefined) {
-  if (!token) {
-    return false;
-  }
-
-  const parts = token.split(".");
-
-  if (parts.length !== 2) {
-    return false;
-  }
-
-  const [timestamp, signature] = parts;
-  const sessionTime = Number(timestamp);
-
-  if (!Number.isFinite(sessionTime)) {
-    return false;
-  }
-
-  const age = Date.now() - sessionTime;
-
-  if (age < 0 || age > SESSION_MAX_AGE * 1000) {
-    return false;
-  }
+async function isValidSession(token: string | undefined): Promise<boolean> {
+  if (!token) return false;
 
   const secret = process.env.ATS_SESSION_SECRET;
+  if (!secret) return false;
 
-  if (!secret) {
+  const parts = token.split(".");
+  if (parts.length !== 2) return false;
+
+  const [timestamp, signature] = parts;
+  const timestampNumber = Number(timestamp);
+
+  if (!Number.isFinite(timestampNumber)) return false;
+
+  const maxAge = 8 * 60 * 60 * 1000;
+
+  if (Date.now() - timestampNumber > maxAge) return false;
+  if (Date.now() - timestampNumber < 0) return false;
+
+  try {
+    const encoder = new TextEncoder();
+
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(secret),
+      {
+        name: "HMAC",
+        hash: "SHA-256",
+      },
+      false,
+      ["verify"]
+    );
+
+    const signatureBytes = Uint8Array.from(
+      atob(signature.replace(/-/g, "+").replace(/_/g, "/")),
+      (char) => char.charCodeAt(0)
+    );
+
+    return await crypto.subtle.verify(
+      "HMAC",
+      key,
+      signatureBytes,
+      encoder.encode(timestamp)
+    );
+  } catch {
     return false;
   }
-
-  const expectedSignature = await createSignature(timestamp, secret);
-
-  return signature === expectedSignature;
 }
 
 export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
   const session = request.cookies.get("ats_session")?.value;
+  const validSession = await isValidSession(session);
 
-  const valid = await isValidSession(session);
+  if (validSession) {
+    return NextResponse.next();
+  }
 
-  if (!valid) {
-    const loginUrl = new URL("/", request.url);
+  // API requests must receive JSON 401, not a redirect to the login page.
+  if (pathname === "/api/candidates") {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized",
+      },
+      { status: 401 }
+    );
+  }
 
-    return NextResponse.redirect(loginUrl);
+  // Dashboard requests redirect to the login page.
+  if (pathname.startsWith("/dashboard")) {
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/api/candidates"],
 };
