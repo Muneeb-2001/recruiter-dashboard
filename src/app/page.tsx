@@ -25,7 +25,7 @@ export default function LoginPage() {
 
     try {
       const response = await fetch(
-        "https://n8n.domingogarcia.info/webhook/candidate-status",
+        "/api/login",
         {
           method: "POST",
           headers: {
@@ -248,4 +248,5 @@ export default function LoginPage() {
     </main>
   );
 }
+
 
