@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -24,7 +24,7 @@ type Candidate = {
 };
 
 function formatDate(value: string) {
-  if (!value) return "✕";
+  if (!value) return "×";
   const date = new Date(value);
   if (isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-US", {
@@ -174,11 +174,11 @@ export default function DashboardPage() {
           </div>
           <div style={styles.sidebarGuideItem}>
             <span style={{...styles.sidebarDot, backgroundColor: '#3b82f6'}}></span>
-            <span style={styles.sidebarGuideText}><strong>65–84</strong> Good Match</span>
+            <span style={styles.sidebarGuideText}><strong>65-84</strong> Good Match</span>
           </div>
           <div style={styles.sidebarGuideItem}>
             <span style={{...styles.sidebarDot, backgroundColor: '#f59e0b'}}></span>
-            <span style={styles.sidebarGuideText}><strong>50–64</strong> Moderate Match</span>
+            <span style={styles.sidebarGuideText}><strong>50-64</strong> Moderate Match</span>
           </div>
           <div style={styles.sidebarGuideItem}>
             <span style={{...styles.sidebarDot, backgroundColor: '#ef4444'}}></span>
@@ -291,7 +291,7 @@ export default function DashboardPage() {
                         lineHeight: 1,
                       }}
                     >
-                      ✕
+                      ×
                     </button>
                   )}
                 </div>
@@ -573,7 +573,7 @@ export default function DashboardPage() {
                 onClick={() => setSelected(null)}
                 style={styles.modalClose}
               >
-                ✕
+                ×
               </button>
             </div>
 
@@ -655,63 +655,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Match Scores */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                  gap: '14px',
-                  marginBottom: '22px',
-                }}
-              >
-                <div
-                  style={{
-                    padding: '18px',
-                    borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
-                    backgroundColor: '#f8fafc',
-                  }}
-                >
-                  <p style={styles.modalStatLabel}>
-                    Skill Match Score
-                  </p>
 
-                  <p
-                    style={{
-                      margin: '6px 0 0',
-                      fontSize: '24px',
-                      fontWeight: 800,
-                      color: getScoreColor(selected.skillsMatchScore),
-                    }}
-                  >
-                    {selected.skillsMatchScore ?? "—"}
-                  </p>
-                </div>
-
-                <div
-                  style={{
-                    padding: '18px',
-                    borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
-                    backgroundColor: '#f8fafc',
-                  }}
-                >
-                  <p style={styles.modalStatLabel}>
-                    Experience Match Score
-                  </p>
-
-                  <p
-                    style={{
-                      margin: '6px 0 0',
-                      fontSize: '24px',
-                      fontWeight: 800,
-                      color: getScoreColor(selected.experienceMatch),
-                    }}
-                  >
-                    {selected.experienceMatch ?? "—"}
-                  </p>
-                </div>
-              </div>
 
               {/* Summary */}
               <div
@@ -851,7 +795,7 @@ export default function DashboardPage() {
                             lineHeight: 1.4,
                           }}
                         >
-                          ⚠
+                          ! 
                         </span>
 
                         <span>{item}</span>
@@ -1049,7 +993,7 @@ export default function DashboardPage() {
           <div style={{...styles.modal, maxWidth: '480px', borderColor: primaryColor + '20'}} onClick={(e) => e.stopPropagation()}>
             <div style={{...styles.modalHeader, borderColor: primaryColor + '15'}}>
               <h2 style={{...styles.modalTitle, color: primaryColor}}>Send AI Interview Link?</h2>
-              <button onClick={() => setInterviewCandidate(null)} style={styles.modalClose}>✕</button>
+              <button onClick={() => setInterviewCandidate(null)} style={styles.modalClose}>×</button>
             </div>
             <div style={styles.modalBody}>
               <p style={styles.modalText}>Are you sure you want to send the AI interview link to this candidate?</p>
