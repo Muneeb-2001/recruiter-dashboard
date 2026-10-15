@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -459,7 +459,7 @@ export default function DashboardPage() {
                         <td style={styles.td}>{candidate.area || "—"}</td>
                         <td style={styles.td}>
                           <span style={{...styles.scoreBadge, backgroundColor: candidate.score === null ? '#ede9fe' : getScoreColor(candidate.score) + '20', color: getScoreColor(candidate.score)}}>
-                            {candidate.score ?? "Duplicate"}
+                            {candidate.score == null ? "Duplicate" : Number.isFinite(Number(candidate.score)) ? Math.round(Number(candidate.score)) : candidate.score}
                           </span>
                         </td>
                         <td style={styles.td}>
@@ -606,7 +606,7 @@ export default function DashboardPage() {
                       color: getScoreColor(selected.score),
                     }}
                   >
-                    {selected.score ?? "—"}
+                    {selected.score == null ? "—" : Number.isFinite(Number(selected.score)) ? Math.round(Number(selected.score)) : selected.score}
                   </p>
                 </div>
 
