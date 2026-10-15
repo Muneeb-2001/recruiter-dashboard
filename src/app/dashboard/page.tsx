@@ -735,7 +735,7 @@ export default function DashboardPage() {
                       color: getScoreColor(selected.score),
                     }}
                   >
-                    {selected.score == null ? "”" : Number.isFinite(Number(selected.score)) ? Math.round(Number(selected.score)) : selected.score}
+                    {String(selected.score ?? "").replace(/[”"“]/g, "").trim() || "-"}
                   </p>
                 </div>
 
