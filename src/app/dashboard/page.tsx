@@ -735,7 +735,9 @@ export default function DashboardPage() {
                       color: getScoreColor(selected.score),
                     }}
                   >
-                    {String(selected.score ?? "").replace(/[”"“]/g, "").trim() || "-"}
+                    {String(selected.score ?? "").replace(/[”"“]/g, "").trim()
+                      ? String(selected.score).replace(/[”"“]/g, "").trim()
+                      : <span style={{ color: "#1e293b", fontSize: "16px", fontWeight: 400 }}>-</span>}
                   </p>
                 </div>
 
