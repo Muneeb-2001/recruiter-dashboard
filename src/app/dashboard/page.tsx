@@ -71,6 +71,9 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Candidate | null>(null);
   const [search, setSearch] = useState("");
+  const [minAtsScore, setMinAtsScore] = useState("");
+  const [maxAtsScore, setMaxAtsScore] = useState("");
+  const [selectedInterviewStatus, setSelectedInterviewStatus] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [interviewCandidate, setInterviewCandidate] = useState<Candidate | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -116,7 +119,16 @@ export default function DashboardPage() {
     const matchesDate =
       !selectedDate || candidateDate === selectedDate;
 
-    return matchesSearch && matchesDate;
+    const score = candidate.score;
+    const matchesMinScore =
+      minAtsScore === "" ||
+      (score !== null && score >= Number(minAtsScore));
+    const matchesMaxScore =
+      maxAtsScore === "" ||
+      (score !== null && score <= Number(maxAtsScore));
+
+    const matchesInterviewStatus = !selectedInterviewStatus || candidate.interviewStatus === selectedInterviewStatus;
+    return matchesSearch && matchesDate && matchesMinScore && matchesMaxScore && matchesInterviewStatus;
   });
 
   const sortedCandidates = [...filteredCandidates].sort((a, b) => {
@@ -214,18 +226,36 @@ export default function DashboardPage() {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: '16px',
-                flexWrap: 'wrap',
+                flexWrap: 'nowrap',
                 padding: '18px 20px',
               }}
             >
-              <div style={{ flex: '1 1 220px', minWidth: '220px' }}>
+              <div style={{ flex: '1 1 260px', minWidth: '220px' }}>
                 <h3 style={styles.tableTitle}>Candidates</h3>
                 <p style={styles.tableSubtitle}>
-                  Live candidate data from Airtable.
+                  Live candidate data
                 </p>
+                <div style={{ ...styles.searchBox, height: "42px", width: "280px", minWidth: "240px", marginTop: "12px", boxSizing: "border-box" }}>
+                  <span style={{ ...styles.searchIcon, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="m20 20-4-4" />
+                    </svg>
+                  </span>
+                  <input
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Search"
+                    style={{ ...styles.searchInput, borderColor: primaryColor + '30' }}
+                  />
+                </div>
               </div>
 
-              <div
+              
+<div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -332,7 +362,7 @@ export default function DashboardPage() {
                           : 'pointer',
                     }}
                   >
-                    ‹
+                    &#8249;
                   </button>
 
                   {visiblePages.map((page) => (
@@ -390,55 +420,131 @@ export default function DashboardPage() {
                           : 'pointer',
                     }}
                   >
-                    ›
+                    &#8250;
                   </button>
-                </div>
+                
+                
+</div>
 
-                {/* Search */}
-                <div
-                  style={{
-                    ...styles.searchBox,
-                    height: '38px',
-                  }}
-                >
-                  <span
+
+
+{/* ATS Score Filters */}
+<div
   style={{
-    ...styles.searchIcon,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  }}
-  aria-hidden="true"
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+    gap: "10px",
+    width: "100%",
+    margin: "12px 0",
+    padding: "12px 14px",
+    boxSizing: "border-box",
+    }}
 >
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="11" cy="11" r="7" />
-    <path d="m20 20-4-4" />
-  </svg>
-</span>
 
-                  <input
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    placeholder="Search"
-                    style={{
-                      ...styles.searchInput,
-                      borderColor: primaryColor + '30',
-                    }}
-                  />
-                </div>
+
+  <input
+    type="number"
+    min="0"
+    max="100"
+    placeholder="Min ATS"
+    aria-label="Minimum ATS score"
+    value={minAtsScore}
+    onChange={(e) => {
+      setMinAtsScore(e.target.value);
+      setCurrentPage(1);
+    }}
+    style={{
+      width: "105px",
+      height: "40px",
+      boxSizing: "border-box",
+      padding: "0 12px",
+      border: "1px solid #cbd5e1",
+      borderRadius: "8px",
+      outline: "none",
+      backgroundColor: "#ffffff",
+      color: "#0f172a",
+      fontSize: "13px",
+    }}
+  />
+
+  <input
+    type="number"
+    min="0"
+    max="100"
+    placeholder="Max ATS"
+    aria-label="Maximum ATS score"
+    value={maxAtsScore}
+    onChange={(e) => {
+      setMaxAtsScore(e.target.value);
+      setCurrentPage(1);
+    }}
+    style={{
+      width: "105px",
+      height: "40px",
+      boxSizing: "border-box",
+      padding: "0 12px",
+      border: "1px solid #cbd5e1",
+      borderRadius: "8px",
+      outline: "none",
+      backgroundColor: "#ffffff",
+      color: "#0f172a",
+      fontSize: "13px",
+    }}
+  />
+
+  <select
+    aria-label="Filter by interview status"
+    value={selectedInterviewStatus}
+    onChange={(e) => {
+      setSelectedInterviewStatus(e.target.value);
+      setCurrentPage(1);
+    }}
+    style={{
+      width: "180px",
+      height: "40px",
+      boxSizing: "border-box",
+      padding: "0 12px",
+      border: "1px solid #cbd5e1",
+      borderRadius: "8px",
+      outline: "none",
+      backgroundColor: "#ffffff",
+      color: "#334155",
+      fontSize: "13px",
+      cursor: "pointer",
+    }}
+  >
+    <option value="">All Status</option>
+    <option value="Invitation Send">Invitation Send</option>
+    <option value="Invitation Done">Invitation Done</option>
+  </select>
+
+  <button
+    type="button"
+    onClick={() => {
+      setMinAtsScore("");
+      setMaxAtsScore("");
+      setSelectedInterviewStatus("");
+      setCurrentPage(1);
+    }}
+    style={{
+      height: "40px",
+      padding: "0 16px",
+      border: "1px solid #124559",
+      borderRadius: "8px",
+      backgroundColor: "#124559",
+      color: "#ffffff",
+      fontSize: "13px",
+      fontWeight: 600,
+      cursor: "pointer",
+      whiteSpace: "nowrap",
+    }}
+  >
+    Clear Filters
+  </button>
+</div>
+                
 
               </div>
             </div>            {loading ? (
@@ -479,7 +585,7 @@ export default function DashboardPage() {
                           </div>
                         </td>
                         <td style={{...styles.td, whiteSpace: 'nowrap'}}>{formatDate(candidate.date)}</td>
-                        <td style={styles.td}>{candidate.area || "—"}</td>
+                        <td style={styles.td}>{candidate.area || "”"}</td>
                         <td style={styles.td}>
                           <span style={{...styles.scoreBadge, backgroundColor: candidate.score === null ? '#ede9fe' : getScoreColor(candidate.score) + '20', color: getScoreColor(candidate.score)}}>
                             {candidate.score == null ? "Duplicate" : Number.isFinite(Number(candidate.score)) ? Math.round(Number(candidate.score)) : candidate.score}
@@ -495,9 +601,9 @@ export default function DashboardPage() {
                             ...styles.statusBadge,
                             backgroundColor: getStatusStyle(candidate.interviewStatus).backgroundColor,
                             color: getStatusStyle(candidate.interviewStatus).color,
-                            border: getStatusStyle(candidate.interviewStatus).border,
+                            border: getStatusStyle(candidate.interviewStatus).border, marginLeft: candidate.interviewStatus ? "0px" : "24px",
                           }}>
-                            {candidate.interviewStatus || "—"}
+                            {candidate.interviewStatus || "-"}
                           </span>
                         </td>
                         <td style={styles.tdAction}>
@@ -516,7 +622,7 @@ export default function DashboardPage() {
     fontWeight: 600,
     whiteSpace: "nowrap",
   }}>
-    {candidate.interviewStatus === "Interview Done" ? "✓ Interview Done" : candidate.interviewStatus === "Invitation Done" ? "✓ Invitation Done" : "✓ Invitation Sent"}
+    {candidate.interviewStatus === "Interview Done" ? "Interview Done" : candidate.interviewStatus === "Invitation Done" ? "Invitation Done" : "Invitation Sent"}
   </span>
 ) : (
   <button onClick={() => setInterviewCandidate(candidate)} style={{...styles.sendBtn, background: primaryColor, cursor: "pointer", opacity: 1}}>
@@ -629,7 +735,7 @@ export default function DashboardPage() {
                       color: getScoreColor(selected.score),
                     }}
                   >
-                    {selected.score == null ? "—" : Number.isFinite(Number(selected.score)) ? Math.round(Number(selected.score)) : selected.score}
+                    {selected.score == null ? "”" : Number.isFinite(Number(selected.score)) ? Math.round(Number(selected.score)) : selected.score}
                   </p>
                 </div>
 
@@ -651,7 +757,7 @@ export default function DashboardPage() {
                       color: '#0f172a',
                     }}
                   >
-                    {selected.recommendation || "—"}
+                    {selected.recommendation || "”"}
                   </p>
                 </div>
 
@@ -673,7 +779,7 @@ export default function DashboardPage() {
                       color: '#0f172a',
                     }}
                   >
-                    {selected.area || "—"}
+                    {selected.area || "”"}
                   </p>
                 </div>
               </div>
@@ -818,7 +924,7 @@ export default function DashboardPage() {
                             lineHeight: 1.4,
                           }}
                         >
-                          ! 
+                          ! 
                         </span>
 
                         <span>{item}</span>
@@ -1579,108 +1685,3 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 12px rgba(18, 69, 89, 0.25)',
   },
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
