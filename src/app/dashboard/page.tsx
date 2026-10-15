@@ -757,7 +757,7 @@ export default function DashboardPage() {
                       color: '#0f172a',
                     }}
                   >
-                    {selected.recommendation || "”"}
+                    {selected.recommendation?.replace(/[”"“]/g, "").trim() || "-"}
                   </p>
                 </div>
 
@@ -807,7 +807,7 @@ export default function DashboardPage() {
                     marginTop: '10px',
                   }}
                 >
-                  {selected.summary || "No summary available."}
+                  {selected.summary?.replace(/[”"“]/g, "").trim() || "-"}
                 </p>
               </div>
 
@@ -869,7 +869,7 @@ export default function DashboardPage() {
 
                   {!selected.strength && (
                     <p style={styles.reportText}>
-                      No strengths available.
+                      -
                     </p>
                   )}
                 </div>
@@ -933,7 +933,7 @@ export default function DashboardPage() {
 
                   {!selected.gap && (
                     <p style={styles.reportText}>
-                      No gaps available.
+                      -
                     </p>
                   )}
                 </div>
