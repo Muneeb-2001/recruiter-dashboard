@@ -401,7 +401,30 @@ export default function DashboardPage() {
                     height: '38px',
                   }}
                 >
-                  <span style={styles.searchIcon}></span>
+                  <span
+  style={{
+    ...styles.searchIcon,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  }}
+  aria-hidden="true"
+>
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="11" cy="11" r="7" />
+    <path d="m20 20-4-4" />
+  </svg>
+</span>
 
                   <input
                     value={search}
@@ -409,7 +432,7 @@ export default function DashboardPage() {
                       setSearch(e.target.value);
                       setCurrentPage(1);
                     }}
-                    placeholder="Search candidates..."
+                    placeholder="Search"
                     style={{
                       ...styles.searchInput,
                       borderColor: primaryColor + '30',
