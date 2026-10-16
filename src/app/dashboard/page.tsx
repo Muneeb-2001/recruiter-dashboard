@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -24,7 +24,7 @@ type Candidate = {
 };
 
 function formatDate(value: string) {
-  if (!value) return "×";
+  if (!value) return "Ã—";
   const date = new Date(value);
   if (isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-US", {
@@ -71,6 +71,7 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Candidate | null>(null);
   const [search, setSearch] = useState("");
+  const [selectedArea, setSelectedArea] = useState("");
   const [minAtsScore, setMinAtsScore] = useState("");
   const [maxAtsScore, setMaxAtsScore] = useState("");
   const [selectedInterviewStatus, setSelectedInterviewStatus] = useState("");
@@ -118,6 +119,10 @@ export default function DashboardPage() {
 
     const matchesDate =
       !selectedDate || candidateDate === selectedDate;
+    const matchesArea =
+      !selectedArea ||
+      (candidate.area ?? "").trim().toLowerCase() ===
+        selectedArea.trim().toLowerCase();
 
     const score = candidate.score;
     const matchesMinScore =
@@ -128,7 +133,7 @@ export default function DashboardPage() {
       (score !== null && score <= Number(maxAtsScore));
 
     const matchesInterviewStatus = !selectedInterviewStatus || candidate.interviewStatus === selectedInterviewStatus;
-    return matchesSearch && matchesDate && matchesMinScore && matchesMaxScore && matchesInterviewStatus;
+    return matchesSearch && matchesDate && matchesArea && matchesMinScore && matchesMaxScore && matchesInterviewStatus;
   });
 
   const sortedCandidates = [...filteredCandidates].sort((a, b) => {
@@ -321,7 +326,7 @@ export default function DashboardPage() {
                         lineHeight: 1,
                       }}
                     >
-                      ×
+                      Ã—
                     </button>
                   )}
                 </div>
@@ -444,6 +449,37 @@ export default function DashboardPage() {
 >
 
 
+  <select
+    aria-label="Filter by area"
+    value={selectedArea}
+    onChange={(e) => {
+      setSelectedArea(e.target.value);
+      setCurrentPage(1);
+    }}
+    style={{
+      width: "190px",
+      height: "40px",
+      boxSizing: "border-box",
+      padding: "0 12px",
+      border: "1px solid #cbd5e1",
+      borderRadius: "8px",
+      outline: "none",
+      backgroundColor: "#ffffff",
+      color: "#334155",
+      fontSize: "13px",
+      cursor: "pointer",
+    }}
+  >
+    <option value="">All Areas</option>
+    <option value="Automations">Automations</option>
+    <option value="Operational Support">Operational Support</option>
+    <option value="Digital Content & Media">Digital Content & Media</option>
+    <option value="Web Designer">Web Designer</option>
+    <option value="Recruitment">Recruitment</option>
+    <option value="Revenue/Sales">Revenue/Sales</option>
+    <option value="Finance">Finance</option>
+  </select>
+
   <input
     type="number"
     min="0"
@@ -526,6 +562,7 @@ export default function DashboardPage() {
       setMinAtsScore("");
       setMaxAtsScore("");
       setSelectedInterviewStatus("");
+      setSelectedArea("");
       setCurrentPage(1);
     }}
     style={{
@@ -585,7 +622,7 @@ export default function DashboardPage() {
                           </div>
                         </td>
                         <td style={{...styles.td, whiteSpace: 'nowrap'}}>{formatDate(candidate.date)}</td>
-                        <td style={styles.td}>{candidate.area || "”"}</td>
+                        <td style={styles.td}>{candidate.area || "â€"}</td>
                         <td style={styles.td}>
                           <span style={{...styles.scoreBadge, backgroundColor: candidate.score === null ? '#ede9fe' : getScoreColor(candidate.score) + '20', color: getScoreColor(candidate.score)}}>
                             {candidate.score == null ? "Duplicate" : Number.isFinite(Number(candidate.score)) ? Math.round(Number(candidate.score)) : candidate.score}
@@ -702,7 +739,7 @@ export default function DashboardPage() {
                 onClick={() => setSelected(null)}
                 style={styles.modalClose}
               >
-                ×
+                Ã—
               </button>
             </div>
 
@@ -735,8 +772,8 @@ export default function DashboardPage() {
                       color: getScoreColor(selected.score),
                     }}
                   >
-                    {String(selected.score ?? "").replace(/[”"“]/g, "").trim()
-                      ? String(selected.score).replace(/[”"“]/g, "").trim()
+                    {String(selected.score ?? "").replace(/[â€"â€œ]/g, "").trim()
+                      ? String(selected.score).replace(/[â€"â€œ]/g, "").trim()
                       : <span style={{ color: "#1e293b", fontSize: "16px", fontWeight: 400 }}>-</span>}
                   </p>
                 </div>
@@ -759,7 +796,7 @@ export default function DashboardPage() {
                       color: '#0f172a',
                     }}
                   >
-                    {selected.recommendation?.replace(/[”"“]/g, "").trim() || "-"}
+                    {selected.recommendation?.replace(/[â€"â€œ]/g, "").trim() || "-"}
                   </p>
                 </div>
 
@@ -781,7 +818,7 @@ export default function DashboardPage() {
                       color: '#0f172a',
                     }}
                   >
-                    {selected.area || "”"}
+                    {selected.area || "â€"}
                   </p>
                 </div>
               </div>
@@ -809,7 +846,7 @@ export default function DashboardPage() {
                     marginTop: '10px',
                   }}
                 >
-                  {selected.summary?.replace(/[”"“]/g, "").trim() || "-"}
+                  {selected.summary?.replace(/[â€"â€œ]/g, "").trim() || "-"}
                 </p>
               </div>
 
@@ -862,7 +899,7 @@ export default function DashboardPage() {
                             lineHeight: 1.4,
                           }}
                         >
-                          ✓
+                          âœ“
                         </span>
 
                         <span>{item}</span>
@@ -1124,7 +1161,7 @@ export default function DashboardPage() {
           <div style={{...styles.modal, maxWidth: '480px', borderColor: primaryColor + '20'}} onClick={(e) => e.stopPropagation()}>
             <div style={{...styles.modalHeader, borderColor: primaryColor + '15'}}>
               <h2 style={{...styles.modalTitle, color: primaryColor}}>Send AI Interview Link?</h2>
-              <button onClick={() => setInterviewCandidate(null)} style={styles.modalClose}>×</button>
+              <button onClick={() => setInterviewCandidate(null)} style={styles.modalClose}>Ã—</button>
             </div>
             <div style={styles.modalBody}>
               <p style={styles.modalText}>Are you sure you want to send the AI interview link to this candidate?</p>
@@ -1687,3 +1724,5 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 12px rgba(18, 69, 89, 0.25)',
   },
 };
+
+
