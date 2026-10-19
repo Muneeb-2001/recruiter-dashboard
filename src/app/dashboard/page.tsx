@@ -7,6 +7,8 @@ type Candidate = {
   name: string;
   email: string;
   area: string;
+  country?: string;
+  salaryExpectation?: string | number;
   attachment: any[];
   date: string;
   status: string;
@@ -696,8 +698,8 @@ export default function DashboardPage() {
                     <tr style={{...styles.trHeader, borderColor: primaryColor + '15'}}>
                       <th style={{...styles.th, width: '20%'}}>Candidate</th>
                       <th style={{...styles.th, width: '12%'}}>Date</th>
-                      <th style={{...styles.th, width: '12%'}}>Area</th>
-                      <th style={{...styles.th, width: '10%'}}>ATS Score</th>
+                      <th style={{...styles.th, width: '12%'}}><strong>Area</strong></th>
+                      <th style={{...styles.th, width: '10%'}}><strong>ATS Score</strong></th>
                       <th style={{...styles.th, width: '15%'}}>AI Summary</th>
                       <th style={{...styles.th, width: '16%'}}>Interview Status</th>
                       <th style={{...styles.thAction, width: '15%'}}>Action</th>
@@ -866,7 +868,7 @@ export default function DashboardPage() {
                     backgroundColor: '#ffffff',
                   }}
                 >
-                  <p style={styles.modalStatLabel}>ATS Score</p>
+                  <p style={styles.modalStatLabel}><strong>ATS Score</strong></p>
 
                   <p
                     style={{
@@ -890,7 +892,7 @@ export default function DashboardPage() {
                     backgroundColor: '#ffffff',
                   }}
                 >
-                  <p style={styles.modalStatLabel}>Recommendation</p>
+                  <p style={styles.modalStatLabel}><strong>Recommendation</strong></p>
 
                   <p
                     style={{
@@ -912,7 +914,7 @@ export default function DashboardPage() {
                     backgroundColor: '#ffffff',
                   }}
                 >
-                  <p style={styles.modalStatLabel}>Area</p>
+                  <p style={styles.modalStatLabel}><strong>Area</strong></p>
 
                   <p
                     style={{
@@ -929,6 +931,28 @@ export default function DashboardPage() {
 
 
 
+              {/* Candidate Details from Airtable */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  gap: "12px",
+                  marginBottom: "20px",
+                }}
+              >
+                <div style={{ padding: "14px", border: "1px solid #e2e8f0", borderRadius: "10px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", marginBottom: "5px" }}>COUNTRY</div>
+                  <div style={{ fontSize: "18px", fontWeight: 700, color: "#124559" }}>
+                    {selected.country || "—"}
+                  </div>
+                </div>
+                <div style={{ padding: "14px", border: "1px solid #e2e8f0", borderRadius: "10px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", marginBottom: "5px" }}>SALARY EXPECTATION (PER MONTH)</div>
+                  <div style={{ fontSize: "18px", fontWeight: 700, color: "#124559" }}>
+                    {selected.salaryExpectation ?? "—"}
+                  </div>
+                </div>
+              </div>
               {/* Summary */}
               <div
                 style={{
@@ -1831,6 +1855,12 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 12px rgba(18, 69, 89, 0.25)',
   },
 };
+
+
+
+
+
+
 
 
 
