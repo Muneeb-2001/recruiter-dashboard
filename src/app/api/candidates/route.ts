@@ -75,6 +75,12 @@ export async function GET() {
         name: fields.Name ?? fields.name ?? "",
         email: fields.Email ?? fields.email ?? "",
         area: fields.Area ?? fields.area ?? "",
+        country: fields.Country ?? fields.country ?? "",
+        salaryExpectation:
+          fields["Salary Expectation"] ??
+          fields["Salary expectation"] ??
+          fields.salaryExpectation ??
+          "",
 
         attachment: fields.Attachment ?? [],
 
@@ -399,6 +405,7 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
 
 
 
