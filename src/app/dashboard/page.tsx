@@ -24,13 +24,24 @@ type Candidate = {
 };
 
 function formatDate(value: string) {
-  if (!value) return "Ã—";
+  if (!value) return "×";
   const date = new Date(value);
   if (isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
+  });
+}
+
+function formatTime(value: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
   });
 }
 
@@ -162,6 +173,36 @@ export default function DashboardPage() {
   );
   const primaryColor = "#124559";
 
+  const areaNames = [
+    "Automations",
+    "Operational Support",
+    "Digital Content & Media",
+    "Web Designer",
+    "Recruitment",
+    "Revenue/Sales",
+    "Finance",
+  ];
+
+  const areaCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    areaNames.forEach((area) => {
+      counts[area] = 0;
+    });
+
+    candidates.forEach((candidate) => {
+      const candidateArea = (candidate.area ?? "").trim().toLowerCase();
+      const matchingArea = areaNames.find(
+        (area) => area.toLowerCase() === candidateArea
+      );
+
+      if (matchingArea) {
+        counts[matchingArea] += 1;
+      }
+    });
+
+    return counts;
+  }, [candidates]);
   return (
     <div style={styles.container}>
       {/* Sidebar */}
@@ -173,7 +214,7 @@ export default function DashboardPage() {
             <p style={styles.sidebarSubtitle}>Talent workspace</p>
           </div>
         </div>
-        <div style={{...styles.statsRow, marginLeft: "-12px"}}>
+        <div style={{...styles.statsRow, marginLeft: "-12px", marginBottom: "6px"}}>
           <div style={{...styles.statCard, borderColor: primaryColor + '20'}}>
             <div style={{...styles.statHeader, justifyContent: "center", paddingLeft: "12px"}}>
               <p style={styles.statLabel}>Total candidates</p>
@@ -182,6 +223,61 @@ export default function DashboardPage() {
             <p style={{...styles.statValue, textAlign: "center", paddingLeft: "12px"}}>{stats.total}</p>
             <p style={{...styles.statDesc, textAlign: "center", paddingLeft: "12px"}}>All applications</p>
           </div>
+        </div>
+        <div
+          style={{
+            margin: "2px 18px 6px",
+            padding: "9px 12px",
+            border: "1px solid #cfe1e8",
+            borderRadius: "18px",
+            background: "rgba(255,255,255,0.82)",
+            boxShadow: "0 8px 22px rgba(18,69,89,0.06)",
+          }}
+        >
+          <p
+            style={{
+              margin: "0 0 5px",
+              color: "#124559",
+              fontSize: "15px",
+              fontWeight: 700,
+            }}
+          >
+            Candidates by Area
+          </p>
+
+          {areaNames.map((area) => (
+            <div
+              key={area}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "8px",
+                padding: "4px 0",
+                borderBottom: "1px solid #edf2f5",
+              }}
+            >
+              <span
+                style={{
+                  color: "#475569",
+                  fontSize: "14px",
+                  lineHeight: 1.35,
+                }}
+              >
+                {area}
+              </span>
+              <span
+                style={{
+                  color: "#124559",
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {areaCounts[area]}
+              </span>
+            </div>
+          ))}
         </div>
         <div style={{...styles.sidebarScoreGuide, marginLeft: '18px', marginTop: '4px'}}>
           <p style={styles.sidebarGuideTitle}>ATS Score Guide</p>
@@ -326,7 +422,7 @@ export default function DashboardPage() {
                         lineHeight: 1,
                       }}
                     >
-                      Ã—
+                      ×
                     </button>
                   )}
                 </div>
@@ -443,7 +539,7 @@ export default function DashboardPage() {
     gap: "10px",
     width: "100%",
     margin: "12px 0",
-    padding: "12px 14px",
+    padding: "9px 12px",
     boxSizing: "border-box",
     }}
 >
@@ -621,7 +717,15 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </td>
-                        <td style={{...styles.td, whiteSpace: 'nowrap'}}>{formatDate(candidate.date)}</td>
+                        <td style={{...styles.td, whiteSpace: 'nowrap'}}><div>
+  <div>{formatDate(candidate.date)}</div>
+  <div style={{ fontSize: "14px",
+          fontWeight: 600,
+          color: "#475569",
+          marginTop: "4px" }}>
+    {formatTime(candidate.date)}
+  </div>
+</div></td>
                         <td style={styles.td}>{candidate.area || "â€"}</td>
                         <td style={styles.td}>
                           <span style={{...styles.scoreBadge, backgroundColor: candidate.score === null ? '#ede9fe' : getScoreColor(candidate.score) + '20', color: getScoreColor(candidate.score)}}>
@@ -739,7 +843,7 @@ export default function DashboardPage() {
                 onClick={() => setSelected(null)}
                 style={styles.modalClose}
               >
-                Ã—
+                ×
               </button>
             </div>
 
@@ -899,7 +1003,7 @@ export default function DashboardPage() {
                             lineHeight: 1.4,
                           }}
                         >
-                          âœ“
+                          ✓
                         </span>
 
                         <span>{item}</span>
@@ -1161,7 +1265,7 @@ export default function DashboardPage() {
           <div style={{...styles.modal, maxWidth: '480px', borderColor: primaryColor + '20'}} onClick={(e) => e.stopPropagation()}>
             <div style={{...styles.modalHeader, borderColor: primaryColor + '15'}}>
               <h2 style={{...styles.modalTitle, color: primaryColor}}>Send AI Interview Link?</h2>
-              <button onClick={() => setInterviewCandidate(null)} style={styles.modalClose}>Ã—</button>
+              <button onClick={() => setInterviewCandidate(null)} style={styles.modalClose}>×</button>
             </div>
             <div style={styles.modalBody}>
               <p style={styles.modalText}>Are you sure you want to send the AI interview link to this candidate?</p>
@@ -1216,7 +1320,10 @@ const styles: Record<string, React.CSSProperties> = {
   container: {    minHeight: '100vh', background: 'radial-gradient(circle at 15% 10%, rgba(45,132,158,0.14), transparent 30%), linear-gradient(135deg, #eef7fa 0%, #f8fafc 48%, #e6f1f5 100%)', color: '#0f172a',
   },
   sidebar: {    width: '256px', background: 'linear-gradient(180deg, #ffffff 0%, #f3f9fb 55%, #eaf4f7 100%)', borderRight: '1px solid #d5e5eb', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0, boxShadow: '8px 0 30px rgba(18,69,89,0.12)', zIndex: 10,
-  },
+    overflowY: "auto",
+  overflowX: "hidden",
+  maxHeight: "100vh",
+  scrollbarWidth: "thin",},
   sidebarHeader: {    display: 'flex', alignItems: 'center', gap: '13px', padding: '24px 24px', background: 'linear-gradient(135deg, #ffffff 0%, #e8f5f8 100%)', borderBottom: '1px solid #d7e8ee',
   },
   logo: {    width: '46px', height: '46px', borderRadius: '15px', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: '800', background: 'linear-gradient(135deg, #0d3f52 0%, #176b82 55%, #218da3 100%)', boxShadow: '0 10px 22px rgba(18,69,89,0.30)', letterSpacing: '0.5px',
@@ -1724,5 +1831,24 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 12px rgba(18, 69, 89, 0.25)',
   },
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
