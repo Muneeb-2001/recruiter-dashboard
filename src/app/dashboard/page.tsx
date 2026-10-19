@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 type Candidate = {
+  rawFields?: Record<string, unknown>;
   id: string;
   name: string;
   email: string;
@@ -80,6 +81,10 @@ function getStatusStyle(status: string | undefined) {
 }
 export default function DashboardPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+const [exporting, setExporting] = useState(false);
+const [exportError, setExportError] = useState("");
+const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Candidate | null>(null);
@@ -165,6 +170,80 @@ export default function DashboardPage() {
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
+  const currentPageIds = paginatedCandidates.map((candidate) => candidate.id);
+
+  const allCurrentPageSelected =
+    currentPageIds.length > 0 &&
+    currentPageIds.every((id) => selectedCandidateIds.includes(id));
+
+  const toggleCandidateSelection = (id: string) => {
+    setSelectedCandidateIds((previous) =>
+      previous.includes(id)
+        ? previous.filter((selectedId) => selectedId !== id)
+        : [...previous, id]
+    );
+  };
+
+  const toggleCurrentPageSelection = () => {
+    setSelectedCandidateIds((previous) => {
+      if (allCurrentPageSelected) {
+        return previous.filter((id) => !currentPageIds.includes(id));
+      }
+      return Array.from(new Set([...previous, ...currentPageIds]));
+    });
+  };
+
+  const exportCandidatesToGoogleSheets = async (
+    exportAllFiltered: boolean
+  ) => {
+    const selectedIds = new Set(selectedCandidateIds);
+
+    const candidatesToExport = exportAllFiltered
+      ? sortedCandidates
+      : candidates.filter((candidate) => selectedIds.has(candidate.id));
+
+    if (candidatesToExport.length === 0) {
+      setExportError(
+        exportAllFiltered
+          ? "No candidates match the current filters."
+          : "Select at least one candidate to export."
+      );
+      return;
+    }
+
+    setExporting(true);
+    setExportError("");
+    setSpreadsheetUrl("");
+
+    try {
+      const response = await fetch("/api/google/sheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `ATS Candidates Export ${new Date().toISOString().slice(0, 10)}`,
+          candidates: candidatesToExport,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "Unable to export candidates to Google Sheets."
+        );
+      }
+
+      setSpreadsheetUrl(result.spreadsheetUrl);
+    } catch (error) {
+      setExportError(
+        error instanceof Error
+          ? error.message
+          : "Unable to export candidates."
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const visiblePages = Array.from(
     { length: totalPages },
@@ -693,9 +772,53 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div style={styles.tableWrapper}>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+                  <span style={{ fontSize: "13px", color: "#475569", marginLeft: "8px" }}>
+                    {selectedCandidateIds.length} selected
+                  </span>
+                  <button
+                    type="button"
+                    disabled={exporting}
+                    onClick={() => exportCandidatesToGoogleSheets(false)}
+                    style={{ height: "38px", padding: "0 14px", border: "none", borderRadius: "8px", background: "#124559", color: "#ffffff", cursor: exporting ? "wait" : "pointer", opacity: exporting ? 0.65 : 1, fontSize: "13px", fontWeight: 600 }}
+                  >
+                    {exporting ? "Exporting..." : "Export Selected"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={exporting}
+                    onClick={() => exportCandidatesToGoogleSheets(true)}
+                    style={{ height: "38px", padding: "0 14px", border: "1px solid #124559", borderRadius: "8px", background: "#ffffff", color: "#124559", cursor: exporting ? "wait" : "pointer", opacity: exporting ? 0.65 : 1, fontSize: "13px", fontWeight: 600 }}
+                  >
+                    Export All Filtered ({sortedCandidates.length})
+                  </button>
+                  {spreadsheetUrl && (
+                    <a
+                      href={spreadsheetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: "13px", color: "#124559", fontWeight: 600, textDecoration: "underline" }}
+                    >
+                      Open Google Sheet
+                    </a>
+                  )}
+                  {exportError && (
+                    <span role="alert" style={{ width: "100%", fontSize: "13px", color: "#b91c1c" }}>
+                      {exportError}
+                    </span>
+                  )}
+                </div>
                 <table style={styles.table}>
                   <thead>
                     <tr style={{...styles.trHeader, borderColor: primaryColor + '15'}}>
+                      <th style={{...styles.th, width: "42px"}}>
+                        <input
+                          type="checkbox"
+                          aria-label="Select all candidates on this page"
+                          checked={allCurrentPageSelected}
+                          onChange={toggleCurrentPageSelection}
+                        />
+                      </th>
                       <th style={{...styles.th, width: '20%'}}>Candidate</th>
                       <th style={{...styles.th, width: '12%'}}>Date</th>
                       <th style={{...styles.th, width: '12%'}}><strong>Area</strong></th>
@@ -708,6 +831,14 @@ export default function DashboardPage() {
                   <tbody>
                     {paginatedCandidates.map((candidate) => (
                       <tr key={candidate.id} style={styles.tr}>
+                        <td style={{...styles.td, width: "42px"}}>
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${candidate.name || candidate.email || candidate.id}`}
+                            checked={selectedCandidateIds.includes(candidate.id)}
+                            onChange={() => toggleCandidateSelection(candidate.id)}
+                          />
+                        </td>
                         <td style={styles.td}>
                           <div style={styles.candidateInfo}>
                             <div style={{...styles.avatar, background: primaryColor + '15', color: primaryColor}}>
@@ -1855,30 +1986,4 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 12px rgba(18, 69, 89, 0.25)',
   },
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
