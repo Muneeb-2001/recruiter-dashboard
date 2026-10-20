@@ -59,7 +59,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // API requests must receive JSON 401, not a redirect to the login page.
-  if (pathname === "/api/candidates") {
+  if (pathname.startsWith("/api/candidates")) {
     return NextResponse.json(
       {
         success: false,
@@ -78,5 +78,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/api/candidates"],
+  matcher: ["/dashboard/:path*", "/api/candidates/:path*"],
 };
+

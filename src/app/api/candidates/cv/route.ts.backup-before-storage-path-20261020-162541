@@ -1,0 +1,147 @@
+﻿import { createClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(request: NextRequest) {
+  try {
+    const email = (request.nextUrl.searchParams.get("email") || "").trim();
+
+    if (!email || email.length > 320) {
+      return NextResponse.json(
+        { success: false, error: "A valid candidate email is required." },
+        { status: 400 }
+      );
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SECRET_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json(
+        { success: false, error: "CV service is not configured." },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+
+    const { data: candidate, error: candidateError } = await supabase
+      .from("Candidates Status")
+      .select("Email, Attachment")
+      .ilike("Email", email)
+      .limit(2);
+
+    if (candidateError) {
+      console.error("Candidate CV lookup failed:", candidateError.message);
+      return NextResponse.json(
+        { success: false, error: "Unable to retrieve candidate CV." },
+        { status: 500 }
+      );
+    }
+
+    if (!candidate || candidate.length !== 1) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: candidate?.length ? "Candidate record is ambiguous." : "Candidate not found.",
+        },
+        { status: candidate?.length ? 409 : 404 }
+      );
+    }
+
+    const attachment = candidate[0].Attachment;
+    let storagePath = "";
+
+    if (typeof attachment === "string") {
+      storagePath = attachment.trim();
+    } else if (Array.isArray(attachment) && attachment.length > 0) {
+      const first = attachment[0];
+      if (typeof first === "string") {
+        storagePath = first.trim();
+      } else if (first && typeof first === "object") {
+        storagePath = String(
+          first.path || first.storagePath || first.filename || first.name || ""
+        ).trim();
+      }
+    } else if (attachment && typeof attachment === "object") {
+      storagePath = String(
+        attachment.path ||
+        attachment.storagePath ||
+        attachment.filename ||
+        attachment.name ||
+        ""
+      ).trim();
+    }
+
+    // Only accept a storage object path, never a supplied external URL.
+    if (
+      !storagePath ||
+      /^https?:\/\//i.test(storagePath) ||
+      storagePath.includes("\\") ||
+      storagePath.split("/").some((part) => part === "." || part === "..") ||
+      /[\r\n]/.test(storagePath)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No valid private CV storage path was found for this candidate.",
+        },
+        { status: 404 }
+      );
+    }
+
+    const { data: file, error: fileError } = await supabase.storage
+      .from("applicant-cvs")
+      .download(storagePath);
+
+    if (fileError || !file) {
+      console.error("Private CV download failed:", fileError?.message);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "CV file could not be retrieved. Check its storage path.",
+        },
+        { status: 404 }
+      );
+    }
+
+    const fileName = storagePath.split("/").pop() || "candidate-cv.pdf";
+    const extension = fileName.split(".").pop()?.toLowerCase();
+
+    const contentTypes: Record<string, string> = {
+      pdf: "application/pdf",
+      doc: "application/msword",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+    };
+
+    const contentType = contentTypes[extension || ""] || "application/octet-stream";
+    const download = request.nextUrl.searchParams.get("download") === "1";
+    const safeFileName = fileName.replace(/["\\\r\n]/g, "_");
+
+    return new NextResponse(Buffer.from(await file.arrayBuffer()), {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${safeFileName}"`,
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (error) {
+    console.error("CV endpoint error:", error);
+    return NextResponse.json(
+      { success: false, error: "Unable to retrieve candidate CV." },
+      { status: 500 }
+    );
+  }
+}

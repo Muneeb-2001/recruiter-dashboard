@@ -1,187 +1,153 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+﻿import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from "next/server";
 
 const AIRTABLE_API_URL = "https://api.airtable.com/v0";
 
 export async function GET() {
   try {
-    const token = process.env.AIRTABLE_API_KEY || process.env.AIRTABLE_TOKEN;
-    const baseId = process.env.AIRTABLE_BASE_ID;
-    const tableName = "Status Update";
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SECRET_KEY;
 
-    if (!token) {
+    if (!supabaseUrl || !supabaseKey) {
       return NextResponse.json(
-        { success: false, error: "Airtable token is not configured." },
+        { error: "Supabase environment variables are missing." },
         { status: 500 }
       );
     }
 
-    if (!baseId) {
-      return NextResponse.json(
-        { success: false, error: "Airtable base ID is not configured." },
-        { status: 500 }
-      );
-    }
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
 
-    const allRecords: any[] = [];
-    let offset: string | undefined;
+    const allRows: Record<string, any>[] = [];
+    const pageSize = 500;
 
-    do {
-      const url = new URL(
-        `${AIRTABLE_API_URL}/${baseId}/${encodeURIComponent(tableName)}`
-      );
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await supabase
+        .from("Candidates Status")
+        .select("*")
+        .range(from, from + pageSize - 1);
 
-      if (offset) {
-        url.searchParams.set("offset", offset);
-      }
-
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-
-        console.error("Airtable API error:", response.status, errorText);
+      if (error) {
+        console.error("Supabase candidates query failed:", error.message);
 
         return NextResponse.json(
-          {
-            success: false,
-            error: `Airtable API error ${response.status}: ${errorText}`,
-          },
-          { status: response.status }
+          { error: "Unable to load candidates from Supabase." },
+          { status: 500 }
         );
       }
 
-      const data = await response.json();
+      const rows = (data ?? []) as Record<string, any>[];
+      allRows.push(...rows);
 
-      if (Array.isArray(data.records)) {
-        allRecords.push(...data.records);
+      if (rows.length < pageSize) {
+        break;
+      }
+    }
+
+    const usedIds = new Set<string>();
+
+    const candidates = allRows.map((fields, index) => {
+      const name = fields.Name ?? fields.name ?? "";
+      const email = fields.Email ?? fields.email ?? "";
+      const date = fields.Date ?? fields.date ?? "";
+
+      const baseId = String(
+        fields.id ??
+        fields.ID ??
+        fields.Id ??
+        fields.uuid ??
+        fields.UUID ??
+        email ??
+        `${name}-${date}-${index}`
+      );
+
+      let candidateId = baseId;
+      let duplicateNumber = 1;
+
+      while (usedIds.has(candidateId)) {
+        candidateId = `${baseId}-${duplicateNumber++}`;
       }
 
-      offset = data.offset;
-    } while (offset);
+      usedIds.add(candidateId);
 
-    const candidates = allRecords.map((record: any) => {
-      const fields = record.fields || {};
+      const score =
+        fields.Score ??
+        fields["ATS Score"] ??
+        fields.atsScore ??
+        null;
+
+      const strength =
+        fields.Strength ??
+        fields.Strengths ??
+        fields["Key Strengths"] ??
+        "";
+
+      const gap =
+        fields.Gap ??
+        fields.Gaps ??
+        fields.Weaknesses ??
+        "";
 
       return {
-        id: record.id,
-
-        name: fields.Name ?? fields.name ?? "",
-        email: fields.Email ?? fields.email ?? "",
+        id: candidateId,
+        name,
+        email,
         area: fields.Area ?? fields.area ?? "",
         country: fields.Country ?? fields.country ?? "",
         salaryExpectation:
           fields["Salary Expectation"] ??
-          fields["Salary expectation"] ??
           fields.salaryExpectation ??
+          fields["Salary Expectations"] ??
           "",
-
-        attachment: fields.Attachment ?? [],
-
-        date: fields.Date ?? fields.date ?? "",
-
+        attachment: fields.Attachment ?? fields.attachment ?? [],
+        date,
         status: fields.Status ?? fields.status ?? "",
-
         interviewStatus:
           fields["Interview Status"] ??
           fields.interviewStatus ??
           "",
-
-        score:
-          fields.Score ??
-          fields["ATS Score"] ??
-          fields["ATS score"] ??
-          null,
-
-        atsScore:
-          fields.Score ??
-          fields["ATS Score"] ??
-          fields["ATS score"] ??
-          null,
-
+        score,
+        atsScore: score,
         recommendation:
-          fields.Recommendation ??
-          fields.recommendation ??
-          "",
-
-        summary:
-          fields.Summary ??
-          fields.summary ??
-          "",
-
-        strength:
-          fields.Strength ??
-          fields.Strengths ??
-          fields["Key Strengths"] ??
-          "",
-
-        strengths:
-          fields.Strength ??
-          fields.Strengths ??
-          fields["Key Strengths"] ??
-          "",
-
-        gap:
-          fields.Gap ??
-          fields.Gaps ??
-          fields.Weaknesses ??
-          "",
-
-        gaps:
-          fields.Gap ??
-          fields.Gaps ??
-          fields.Weaknesses ??
-          "",
-
-        skills:
-          fields.Skills ??
-          fields["Skills Match"] ??
-          "",
-
+          fields.Recommendation ?? fields.recommendation ?? "",
+        summary: fields.Summary ?? fields.summary ?? "",
+        strength,
+        strengths: strength,
+        gap,
+        gaps: gap,
+        skills: fields.Skills ?? fields.skills ?? "",
         skillsMatchScore:
           fields["Skills Match Score"] ??
-          fields["Skill Match Score"] ??
-          fields["Skill Match"] ??
+          fields.skillsMatchScore ??
           null,
-
         skillMatchScore:
           fields["Skills Match Score"] ??
-          fields["Skill Match Score"] ??
-          fields["Skill Match"] ??
+          fields.skillMatchScore ??
           null,
-
-        experience:
-          fields.Experience ??
-          "",
-
+        experience: fields.Experience ?? fields.experience ?? "",
         experienceMatch:
           fields["Experience Match Score"] ??
-          fields["Experience Match"] ??
+          fields.experienceMatch ??
           null,
-
         experienceMatchScore:
           fields["Experience Match Score"] ??
-          fields["Experience Match"] ??
+          fields.experienceMatchScore ??
           null,
-
         languageFitScore:
           fields["Language Fit"] ??
-          fields["Language Fit Score"] ??
+          fields.languageFitScore ??
           null,
-
+        resumeText:
+          fields["Resume Text"] ??
+          fields.resumeText ??
+          "",
         rawFields: fields,
       };
     });
-
-    console.log(
-      `Airtable records fetched: ${allRecords.length}`
-    );
 
     return NextResponse.json({
       success: true,
@@ -189,21 +155,14 @@ export async function GET() {
       total: candidates.length,
     });
   } catch (error) {
-    console.error("Candidates API error:", error);
+    console.error("Failed to load Supabase candidates:", error);
 
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to load candidates.",
-      },
+      { error: "Unable to load candidates from Supabase." },
       { status: 500 }
     );
   }
 }
-
 const N8N_WEBHOOK_URL = "https://n8n.domingogarcia.info/webhook/a91cd0c0-7a4b-498a-b186-a7785f52eff1";
 
 export async function POST(request: NextRequest) {
@@ -405,6 +364,9 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+
+
 
 
 

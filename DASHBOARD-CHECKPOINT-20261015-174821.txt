@@ -1,0 +1,22 @@
+﻿AI-ATS-SYSTEM DASHBOARD CHECKPOINT
+Date: 15 October 2026
+Project: C:\Users\Muneeb\Documents\AI-ATS-System
+File: src\app\dashboard\page.tsx
+
+LATEST CHANGE:
+Only empty interview statuses (-) should have marginLeft: 24px.
+Non-empty statuses such as Invitation Send, Invitation Done,
+and Interview Done must retain their original alignment.
+
+RULES:
+- Use PowerShell commands only.
+- Inspect current code before editing.
+- Create a timestamped backup before changes.
+- Do not modify unrelated dashboard functionality.
+- Run npm run build after changes.
+- Restore the backup if the build fails.
+
+LATEST BACKUP PATTERN:
+page.tsx.before-status-margin-fix-YYYYMMDD-HHMMSS
+
+Continue from this checkpoint.

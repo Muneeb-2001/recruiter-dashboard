@@ -107,7 +107,47 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Unable to load candidates.");
       }
-      setCandidates((data.candidates || []).map((c: any) => ({ ...c, score: c.atsScore ?? c.score ?? null, skillsMatchScore: c.skillMatchScore ?? c.skillsMatchScore ?? null, experienceMatch: c.experienceMatchScore ?? c.experienceMatch ?? null, strength: c.strengths ?? c.strength ?? "", gap: c.gaps ?? c.gap ?? "" })));
+      setCandidates((data.candidates || []).map((c: any) => ({ ...c,
+      attachment: (() => {
+        const value = c.attachment;
+
+        if (Array.isArray(value)) return value;
+        if (typeof value !== "string" || !value.trim()) return [];
+
+        const raw = value.trim();
+        const match = raw.match(/^(.*?)\s*\((https:\/\/[^)]+)\)\s*$/i);
+
+        if (match) {
+          try {
+            const parsedUrl = new URL(match[2]);
+
+            if (
+              parsedUrl.protocol !== "https:" ||
+              !parsedUrl.hostname.endsWith("airtableusercontent.com")
+            ) {
+              return [];
+            }
+
+            const filename = match[1].trim();
+
+            return [{
+              filename,
+              url: parsedUrl.toString(),
+              type: filename.toLowerCase().endsWith(".pdf")
+                ? "application/pdf"
+                : "",
+            }];
+          } catch {
+            return [];
+          }
+        }
+
+        return [{
+          path: raw,
+          filename: raw.split("/").pop() || "candidate-cv.pdf",
+          type: "application/pdf",
+        }];
+      })(), score: c.atsScore ?? c.score ?? null, skillsMatchScore: c.skillMatchScore ?? c.skillsMatchScore ?? null, experienceMatch: c.experienceMatchScore ?? c.experienceMatch ?? null, strength: c.strengths ?? c.strength ?? "", gap: c.gaps ?? c.gap ?? "" })));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load candidates.");
     } finally {
@@ -131,9 +171,15 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
       candidate.email?.toLowerCase().includes(searchTerm) ||
       candidate.area?.toLowerCase().includes(searchTerm);
 
-    const candidateDate = candidate.date
-      ? new Date(candidate.date).toISOString().split("T")[0]
-      : "";
+    const parsedCandidateDate = candidate.date
+      ? new Date(candidate.date)
+      : null;
+
+    const candidateDate =
+      parsedCandidateDate &&
+      !Number.isNaN(parsedCandidateDate.getTime())
+        ? parsedCandidateDate.toISOString().split("T")[0]
+        : "";
 
     const matchesDate =
       !selectedDate || candidateDate === selectedDate;
@@ -1262,7 +1308,20 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
                     }}
                   >
                     {selected.attachment.map((file: any, index: number) => {
-                      const fileUrl = file?.url || '';
+                      const fileUrl = (() => {
+                        if (
+                          typeof file?.url === "string" &&
+                          /^https:\/\/[^/]+\.airtableusercontent\.com\//i.test(file.url)
+                        ) {
+                          return file.url;
+                        }
+
+                        if (typeof file?.path === "string" && file.path.trim()) {
+                          return `/api/candidates/cv?path=${encodeURIComponent(file.path)}`;
+                        }
+
+                        return "";
+                      })();
                       const fileName = file?.filename || `Attachment ${index + 1}`;
                       const fileType = file?.type || '';
                       const isPdf =
@@ -1342,7 +1401,7 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
                                 </a>
 
                                 <a
-                                  href={fileUrl}
+                                  href={typeof file?.path === "string" && file.path.trim() ? `/api/candidates/cv?path=${encodeURIComponent(file.path)}&download=1` : fileUrl}
                                   download={fileName}
                                   target="_blank"
                                   rel="noopener noreferrer"
@@ -1986,4 +2045,8 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 12px rgba(18, 69, 89, 0.25)',
   },
 };
+
+
+
+
 
