@@ -26,21 +26,74 @@ type Candidate = {
   interviewStatus?: string;
 };
 
+function parseCandidateDate(value: unknown): Date | null {
+  if (value == null || value === "") return null;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  // Explicitly parse legacy values such as 9/16/2026 6:59pm.
+  const legacy = raw.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})\s*(am|pm))?$/i
+  );
+
+  if (legacy) {
+    const month = Number(legacy[1]);
+    const day = Number(legacy[2]);
+    const year = Number(legacy[3]);
+    let hour = legacy[4] ? Number(legacy[4]) : 0;
+    const minute = legacy[5] ? Number(legacy[5]) : 0;
+    const meridiem = legacy[6]?.toLowerCase();
+
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+    if (meridiem) {
+      if (hour < 1 || hour > 12) return null;
+      if (meridiem === "pm" && hour !== 12) hour += 12;
+      if (meridiem === "am" && hour === 12) hour = 0;
+    }
+
+    const date = new Date(year, month - 1, day, hour, minute);
+
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return date;
+  }
+
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function normalizeCandidateDate(value: unknown): string {
+  const date = parseCandidateDate(value);
+  return date ? date.toISOString() : "";
+}
+
 function formatDate(value: string) {
-  if (!value) return "×";
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return value;
+  const date = parseCandidateDate(value);
+  if (!date) return "—";
+
   return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
-    day: "numeric",
+    day: "2-digit",
   });
 }
 
 function formatTime(value: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return "";
+  const date = parseCandidateDate(value);
+  if (!date) return "";
+
   return date.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
@@ -107,7 +160,7 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Unable to load candidates.");
       }
-      setCandidates((data.candidates || []).map((c: any) => ({ ...c,
+      setCandidates((data.candidates || []).map((c: any) => ({ ...c, date: normalizeCandidateDate(c.date),
       attachment: (() => {
         const value = c.attachment;
 
@@ -196,7 +249,13 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
       maxAtsScore === "" ||
       (score !== null && score <= Number(maxAtsScore));
 
-    const matchesInterviewStatus = !selectedInterviewStatus || candidate.interviewStatus === selectedInterviewStatus;
+    const normalizeInterviewStatus = (value: unknown) =>
+  String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+
+const matchesInterviewStatus =
+  !selectedInterviewStatus ||
+  normalizeInterviewStatus(candidate.interviewStatus) ===
+    normalizeInterviewStatus(selectedInterviewStatus);
     return matchesSearch && matchesDate && matchesArea && matchesMinScore && matchesMaxScore && matchesInterviewStatus;
   });
 
@@ -776,7 +835,7 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
   >
     <option value="">All Status</option>
     <option value="Invitation Send">Invitation Send</option>
-    <option value="Invitation Done">Invitation Done</option>
+    <option value="Interview Done">Interview Done</option>
   </select>
 
   <button
@@ -822,6 +881,76 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
                   <span style={{ fontSize: "13px", color: "#475569", marginLeft: "8px" }}>
                     {selectedCandidateIds.length} selected
                   </span>
+                  {selectedCandidateIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const selectedCandidates = candidates.filter((candidate) =>
+                          selectedCandidateIds.includes(candidate.id)
+                        );
+
+                        if (selectedCandidates.length === 0) {
+                          alert("Please select at least one candidate.");
+                          return;
+                        }
+
+                        const confirmed = window.confirm(
+                          `Click OK to delete ${selectedCandidates.length} selected candidate(s) and refresh the recruiter dashboard?`
+                        );
+
+                        if (!confirmed) return;
+
+                        try {
+                          const response = await fetch(
+                            "https://n8n.domingogarcia.info/webhook/3447e309-39d5-437b-a296-171225b5e62f",
+                            {
+                              method: "POST",
+                              headers: {
+                                "Content-Type": "application/json"
+                              },
+                              body: JSON.stringify({
+                                action: "delete_selected",
+                                source: "ATS Dashboard",
+                                timestamp: new Date().toISOString(),
+                                candidateIds: selectedCandidates.map((candidate) => candidate.id),
+                                candidates: selectedCandidates.map((candidate) => ({
+                                  id: candidate.id,
+                                  name: candidate.name,
+                                  email: candidate.email,
+                                  area: candidate.area
+                                }))
+                              })
+                            }
+                          );
+
+                          if (!response.ok) {
+                            throw new Error(`Webhook returned HTTP ${response.status}`);
+                          }
+
+                          setSelectedCandidateIds([]);
+                          
+                        } catch (error) {
+                          console.error("Delete webhook failed:", error);
+                          alert(
+                            "Could not confirm the webhook request. Check the browser console and n8n execution history."
+                          );
+                        }
+                      }}
+                      style={{
+                        height: "38px",
+                        padding: "0 14px",
+                        border: "1px solid #dc2626",
+                        borderRadius: "8px",
+                        background: "#dc2626",
+                        color: "#ffffff",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        fontWeight: 600
+                      }}
+                    >
+                      Delete Selected ({selectedCandidateIds.length})
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={exporting}
@@ -2045,6 +2174,16 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 12px rgba(18, 69, 89, 0.25)',
   },
 };
+
+
+
+
+
+
+
+
+
+
 
 
 
