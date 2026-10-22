@@ -51,7 +51,7 @@ export async function GET() {
     const usedIds = new Set<string>();
 
     const candidates = allRows.map((fields, index) => {
-      const name = fields.Name ?? fields.name ?? "";
+      const name = fields["Full Name"] ?? fields["full_name"] ?? fields.Name ?? fields.name ?? "";
       const email = fields.Email ?? fields.email ?? "";
       const date = fields.Date ?? fields.date ?? "";
 
@@ -96,14 +96,18 @@ export async function GET() {
         id: candidateId,
         name,
         email,
-        area: fields.Area ?? fields.area ?? "",
+        area: fields["Position Applied"] ?? fields["position_applied"] ?? fields.Area ?? fields.area ?? "",
         country: fields.Country ?? fields.country ?? "",
         salaryExpectation:
+          fields["Salary Expectation (with Currency)"] ??
           fields["Salary Expectation"] ??
           fields.salaryExpectation ??
           fields["Salary Expectations"] ??
           "",
         attachment: fields.Attachment ?? fields.attachment ?? [],
+        linkCV: fields["Link CV"] ?? fields["link_cv"] ?? "",
+        linkPortfolio: fields["Link Portfolio"] ?? fields["link_portfolio"] ?? "",
+        linkLinkedIn: fields["Link LinkedIn"] ?? fields["link_linkedin"] ?? "",
         date,
         status: fields.Status ?? fields.status ?? "",
         interviewStatus:
@@ -364,6 +368,11 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+
+
+
+
 
 
 
