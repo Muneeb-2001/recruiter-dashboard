@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -10,7 +10,20 @@ type Candidate = {
   area: string;
   country?: string;
   salaryExpectation?: string | number;
-  attachment: any[];
+  attachment: any;
+  linkCV?: string;
+  linkPortfolio?: string;
+  linkLinkedIn?: string;
+  availability?: string;
+  workingHours?: string;
+  employeeType?: string;
+  relevantExperience?: string;
+  yearsOfExperience?: string | number;
+  tools?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  referralSource?: string;
+  region?: string;
   date: string;
   status: string;
   score: number | null;
@@ -130,7 +143,7 @@ function getStatusStyle(status: string | undefined) {
   if (status === "Interview Done") {
     return { backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #86efac' };
   }
-  return { backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' };
+  return { backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #DCE5EF' };
 }
 export default function DashboardPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -143,8 +156,11 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
   const [selected, setSelected] = useState<Candidate | null>(null);
   const [search, setSearch] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
+  const [selectedCountry, setSelectedCountry] = useState("");
   const [minAtsScore, setMinAtsScore] = useState("");
   const [maxAtsScore, setMaxAtsScore] = useState("");
+  const [minYearsExperience, setMinYearsExperience] = useState("");
+  const [maxYearsExperience, setMaxYearsExperience] = useState("");
   const [selectedInterviewStatus, setSelectedInterviewStatus] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [interviewCandidate, setInterviewCandidate] = useState<Candidate | null>(null);
@@ -160,7 +176,19 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Unable to load candidates.");
       }
-      setCandidates((data.candidates || []).map((c: any) => ({ ...c, date: normalizeCandidateDate(c.date),
+      setCandidates((data.candidates || []).map((c: any) => ({ ...c, linkCV: typeof c.linkCV === "string" ? c.linkCV.trim() : "",
+      linkPortfolio: typeof c.linkPortfolio === "string" ? c.linkPortfolio.trim() : "",
+      linkLinkedIn: typeof c.linkLinkedIn === "string" ? c.linkLinkedIn.trim() : "",
+      availability: c.rawFields?.["Availability"] ?? "",
+      workingHours: c.rawFields?.["Working Hours"] ?? "",
+      employeeType: c.rawFields?.["Employee Type"] ?? "",
+      relevantExperience: c.rawFields?.["Relevant Experience"] ?? "",
+      yearsOfExperience: c.rawFields?.["Years of Experience"] ?? "",
+      tools: c.rawFields?.["Tools"] ?? "",
+      dateOfBirth: c.rawFields?.["Date of Birth"] ?? "",
+      gender: c.rawFields?.["Gender"] ?? "",
+      referralSource: c.rawFields?.["Where did you hear about this job opportunity?"] ?? "",
+      region: c.rawFields?.["Region (SEA / Non SEA)"] ?? "", date: normalizeCandidateDate(c.date),
       attachment: (() => {
         const value = c.attachment;
 
@@ -220,9 +248,9 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
     const searchTerm = search.toLowerCase().trim();
 
     const matchesSearch =
-      candidate.name?.toLowerCase().includes(searchTerm) ||
-      candidate.email?.toLowerCase().includes(searchTerm) ||
-      candidate.area?.toLowerCase().includes(searchTerm);
+      !searchTerm ||
+      String(candidate.name ?? "").toLowerCase().includes(searchTerm) ||
+      String(candidate.email ?? "").toLowerCase().includes(searchTerm);
 
     const parsedCandidateDate = candidate.date
       ? new Date(candidate.date)
@@ -240,6 +268,24 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
       !selectedArea ||
       (candidate.area ?? "").trim().toLowerCase() ===
         selectedArea.trim().toLowerCase();
+    const normalizeCountry = (value: unknown) =>
+      String(value ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+
+    const countryKeyword = normalizeCountry(selectedCountry);
+    const candidateCountry = normalizeCountry(
+      candidate.country ??
+      candidate.rawFields?.["Country"] ??
+      candidate.rawFields?.["country"] ??
+      ""
+    );
+
+    const matchesCountry =
+      !countryKeyword ||
+      candidateCountry.includes(countryKeyword);
 
     const score = candidate.score;
     const matchesMinScore =
@@ -256,7 +302,22 @@ const matchesInterviewStatus =
   !selectedInterviewStatus ||
   normalizeInterviewStatus(candidate.interviewStatus) ===
     normalizeInterviewStatus(selectedInterviewStatus);
-    return matchesSearch && matchesDate && matchesArea && matchesMinScore && matchesMaxScore && matchesInterviewStatus;
+    const yearsText = String(candidate.yearsOfExperience ?? "").trim();
+    const yearsMatch = yearsText.match(/\d+(?:\.\d+)?/);
+    const yearsValue = yearsMatch ? Number(yearsMatch[0]) : NaN;
+    const hasYearsValue = yearsText !== "" && Number.isFinite(yearsValue);
+
+    const matchesMinYears =
+      minYearsExperience === "" ||
+      (hasYearsValue && yearsValue >= Number(minYearsExperience));
+
+    const matchesMaxYears =
+      maxYearsExperience === "" ||
+      (hasYearsValue && yearsValue <= Number(maxYearsExperience));
+
+    return matchesSearch && matchesDate && matchesArea && matchesCountry &&
+      matchesMinScore && matchesMaxScore && matchesInterviewStatus &&
+      matchesMinYears && matchesMaxYears;
   });
 
   const sortedCandidates = [...filteredCandidates].sort((a, b) => {
@@ -413,7 +474,7 @@ const matchesInterviewStatus =
         <div
           style={{
             margin: "2px 18px 6px",
-            padding: "9px 12px",
+            padding: "4px 0",
             border: "1px solid #cfe1e8",
             borderRadius: "18px",
             background: "rgba(255,255,255,0.82)",
@@ -517,29 +578,7 @@ const matchesInterviewStatus =
                 padding: '18px 20px',
               }}
             >
-              <div style={{ flex: '1 1 260px', minWidth: '220px' }}>
-                <h3 style={styles.tableTitle}>Candidates</h3>
-                <p style={styles.tableSubtitle}>
-                  Live candidate data
-                </p>
-                <div style={{ ...styles.searchBox, height: "42px", width: "280px", minWidth: "240px", marginTop: "12px", boxSizing: "border-box" }}>
-                  <span style={{ ...styles.searchIcon, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} aria-hidden="true">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="11" cy="11" r="7" />
-                      <path d="m20 20-4-4" />
-                    </svg>
-                  </span>
-                  <input
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    placeholder="Search"
-                    style={{ ...styles.searchInput, borderColor: primaryColor + '30' }}
-                  />
-                </div>
-              </div>
+              
 
               
 <div
@@ -560,7 +599,7 @@ const matchesInterviewStatus =
                     gap: '7px',
                     height: '38px',
                     padding: '0 11px',
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid #DCE5EF',
                     borderRadius: '9px',
                     backgroundColor: '#ffffff',
                   }}
@@ -621,7 +660,7 @@ const matchesInterviewStatus =
                     gap: '4px',
                     height: '38px',
                     padding: '0 5px',
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid #DCE5EF',
                     borderRadius: '9px',
                     backgroundColor: '#ffffff',
                   }}
@@ -720,16 +759,48 @@ const matchesInterviewStatus =
   style={{
     display: "flex",
     alignItems: "center",
-    justifyContent: "flex-end",
-    flexWrap: "wrap",
-    gap: "10px",
+    justifyContent: "flex-start",
+    flexWrap: "nowrap",
+    gap: "6px",
     width: "100%",
-    margin: "12px 0",
-    padding: "9px 12px",
+    margin: "8px 0",
+    padding: "4px 0",
     boxSizing: "border-box",
     }}
 >
 
+
+  <input
+
+
+    type="text"
+
+
+    value={selectedCountry}
+
+
+    onChange={(e) => {
+
+
+      setSelectedCountry(e.target.value);
+
+
+      setCurrentPage(1);
+
+
+    }}
+
+
+    placeholder="Filter by country"
+
+
+    aria-label="Filter by country"
+
+
+    style={{ width: "145px", height: "38px", boxSizing: "border-box", padding: "0 10px", border: "1px solid #DCE5EF", borderRadius: "8px", fontSize: "13px", color: "#334155" }}
+
+
+  />
 
   <select
     aria-label="Filter by area"
@@ -739,11 +810,11 @@ const matchesInterviewStatus =
       setCurrentPage(1);
     }}
     style={{
-      width: "190px",
-      height: "40px",
+      width: "165px",
+      height: "38px",
       boxSizing: "border-box",
-      padding: "0 12px",
-      border: "1px solid #cbd5e1",
+      padding: "0 10px",
+      border: "1px solid #DCE5EF",
       borderRadius: "8px",
       outline: "none",
       backgroundColor: "#ffffff",
@@ -774,11 +845,11 @@ const matchesInterviewStatus =
       setCurrentPage(1);
     }}
     style={{
-      width: "105px",
-      height: "40px",
+      width: "88px",
+      height: "38px",
       boxSizing: "border-box",
-      padding: "0 12px",
-      border: "1px solid #cbd5e1",
+      padding: "0 10px",
+      border: "1px solid #DCE5EF",
       borderRadius: "8px",
       outline: "none",
       backgroundColor: "#ffffff",
@@ -799,11 +870,11 @@ const matchesInterviewStatus =
       setCurrentPage(1);
     }}
     style={{
-      width: "105px",
-      height: "40px",
+      width: "88px",
+      height: "38px",
       boxSizing: "border-box",
-      padding: "0 12px",
-      border: "1px solid #cbd5e1",
+      padding: "0 10px",
+      border: "1px solid #DCE5EF",
       borderRadius: "8px",
       outline: "none",
       backgroundColor: "#ffffff",
@@ -820,11 +891,11 @@ const matchesInterviewStatus =
       setCurrentPage(1);
     }}
     style={{
-      width: "180px",
-      height: "40px",
+      width: "155px",
+      height: "38px",
       boxSizing: "border-box",
-      padding: "0 12px",
-      border: "1px solid #cbd5e1",
+      padding: "0 10px",
+      border: "1px solid #DCE5EF",
       borderRadius: "8px",
       outline: "none",
       backgroundColor: "#ffffff",
@@ -838,18 +909,44 @@ const matchesInterviewStatus =
     <option value="Interview Done">Interview Done</option>
   </select>
 
+  <input
+    type="number"
+    min="0"
+    placeholder="Min Years"
+    aria-label="Minimum years of experience"
+    value={minYearsExperience}
+    onChange={(e) => {
+      setMinYearsExperience(e.target.value);
+      setCurrentPage(1);
+    }}
+    style={{ width: "88px", height: "38px", boxSizing: "border-box", padding: "0 9px", border: "1px solid #DCE5EF", borderRadius: "8px", fontSize: "13px", color: "#334155" }}
+  />
+  <input
+    type="number"
+    min="0"
+    placeholder="Max Years"
+    aria-label="Maximum years of experience"
+    value={maxYearsExperience}
+    onChange={(e) => {
+      setMaxYearsExperience(e.target.value);
+      setCurrentPage(1);
+    }}
+    style={{ width: "88px", height: "38px", boxSizing: "border-box", padding: "0 9px", border: "1px solid #DCE5EF", borderRadius: "8px", fontSize: "13px", color: "#334155" }}
+  />
   <button
     type="button"
     onClick={() => {
       setMinAtsScore("");
       setMaxAtsScore("");
+      setMinYearsExperience("");
+      setMaxYearsExperience("");
       setSelectedInterviewStatus("");
       setSelectedArea("");
       setCurrentPage(1);
     }}
     style={{
-      height: "40px",
-      padding: "0 16px",
+      height: "38px",
+      padding: "0 12px",
       border: "1px solid #124559",
       borderRadius: "8px",
       backgroundColor: "#124559",
@@ -877,7 +974,7 @@ const matchesInterviewStatus =
               </div>
             ) : (
               <div style={styles.tableWrapper}>
-                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
                   <span style={{ fontSize: "13px", color: "#475569", marginLeft: "8px" }}>
                     {selectedCandidateIds.length} selected
                   </span>
@@ -997,7 +1094,7 @@ const matchesInterviewStatus =
                       <th style={{...styles.th, width: '20%'}}>Candidate</th>
                       <th style={{...styles.th, width: '12%'}}>Date</th>
                       <th style={{...styles.th, width: '12%'}}><strong>Area</strong></th>
-                      <th style={{...styles.th, width: '10%'}}><strong>ATS Score</strong></th>
+                      
                       <th style={{...styles.th, width: '15%'}}>AI Summary</th>
                       <th style={{...styles.th, width: '16%'}}>Interview Status</th>
                       <th style={{...styles.thAction, width: '15%'}}>Action</th>
@@ -1022,6 +1119,9 @@ const matchesInterviewStatus =
                             <div>
                               <p style={styles.candidateName}>{candidate.name || "Unnamed"}</p>
                               <p style={styles.candidateEmail}>{candidate.email || "No email"}</p>
+                              <p style={{ fontSize: "12px", color: "#64748b", margin: "3px 0 0" }}>
+                                Country: {candidate.country || "Not provided"} · Experience: {(() => { const value = String(candidate.yearsOfExperience ?? "").trim().replace(/\.0+$/, ""); return value ? `${value} ${Number(value) === 1 ? "year" : "years"}` : "Not provided"; })()}
+                              </p>
                             </div>
                           </div>
                         </td>
@@ -1035,11 +1135,6 @@ const matchesInterviewStatus =
   </div>
 </div></td>
                         <td style={styles.td}>{candidate.area || "â€"}</td>
-                        <td style={styles.td}>
-                          <span style={{...styles.scoreBadge, backgroundColor: candidate.score === null ? '#ede9fe' : getScoreColor(candidate.score) + '20', color: getScoreColor(candidate.score)}}>
-                            {candidate.score == null ? "Duplicate" : Number.isFinite(Number(candidate.score)) ? Math.round(Number(candidate.score)) : candidate.score}
-                          </span>
-                        </td>
                         <td style={styles.td}>
                           <button onClick={() => setSelected(candidate)} style={{...styles.viewBtn, background: primaryColor}}>
                             View report
@@ -1161,40 +1256,18 @@ const matchesInterviewStatus =
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
                   gap: '14px',
                   marginBottom: '20px',
                 }}
               >
-                <div
-                  style={{
-                    padding: '18px',
-                    borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
-                    backgroundColor: '#ffffff',
-                  }}
-                >
-                  <p style={styles.modalStatLabel}><strong>ATS Score</strong></p>
-
-                  <p
-                    style={{
-                      margin: '6px 0 0',
-                      fontSize: '30px',
-                      fontWeight: 800,
-                      color: getScoreColor(selected.score),
-                    }}
-                  >
-                    {String(selected.score ?? "").replace(/[â€"â€œ]/g, "").trim()
-                      ? String(selected.score).replace(/[â€"â€œ]/g, "").trim()
-                      : <span style={{ color: "#1e293b", fontSize: "16px", fontWeight: 400 }}>-</span>}
-                  </p>
-                </div>
+                
 
                 <div
                   style={{
                     padding: '18px',
                     borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid #DCE5EF',
                     backgroundColor: '#ffffff',
                   }}
                 >
@@ -1216,7 +1289,7 @@ const matchesInterviewStatus =
                   style={{
                     padding: '18px',
                     borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid #DCE5EF',
                     backgroundColor: '#ffffff',
                   }}
                 >
@@ -1247,13 +1320,7 @@ const matchesInterviewStatus =
                 }}
               >
                 <div style={{ padding: "14px", border: "1px solid #e2e8f0", borderRadius: "10px" }}>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", marginBottom: "5px" }}>COUNTRY</div>
-                  <div style={{ fontSize: "18px", fontWeight: 700, color: "#124559" }}>
-                    {selected.country || "—"}
-                  </div>
-                </div>
-                <div style={{ padding: "14px", border: "1px solid #e2e8f0", borderRadius: "10px" }}>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", marginBottom: "5px" }}>SALARY EXPECTATION (PER MONTH)</div>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", marginBottom: "5px" }}>SALARY EXPECTATION</div>
                   <div style={{ fontSize: "18px", fontWeight: 700, color: "#124559" }}>
                     {selected.salaryExpectation ?? "—"}
                   </div>
@@ -1265,7 +1332,7 @@ const matchesInterviewStatus =
                   marginBottom: '18px',
                   padding: '18px',
                   borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
+                  border: '1px solid #DCE5EF',
                   backgroundColor: '#ffffff',
                 }}
               >
@@ -1290,7 +1357,7 @@ const matchesInterviewStatus =
                   marginBottom: '18px',
                   padding: '18px',
                   borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
+                  border: '1px solid #DCE5EF',
                   backgroundColor: '#ffffff',
                 }}
               >
@@ -1354,7 +1421,7 @@ const matchesInterviewStatus =
                   marginBottom: '4px',
                   padding: '18px',
                   borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
+                  border: '1px solid #DCE5EF',
                   backgroundColor: '#ffffff',
                 }}
               >
@@ -1411,15 +1478,164 @@ const matchesInterviewStatus =
                   )}
                 </div>
               </div>
+              {/* Professional Links */}
+              {[
+                { label: "LinkedIn", value: selected.linkLinkedIn },
+                { label: "CV Link", value: selected.linkCV },
+                { label: "Portfolio", value: selected.linkPortfolio },
+              ].some((item) => {
+                const value = String(item.value ?? "").trim();
+                return /^https?:\/\//i.test(value) &&
+                  !/^(null|undefined|-|n\/a)$/i.test(value);
+              }) && (
+                <div
+                  style={{
+                    marginBottom: "18px",
+                    padding: "18px",
+                    borderRadius: "12px",
+                    border: "1px solid #DCE5EF",
+                    backgroundColor: "#ffffff",
+                  }}
+                >
+                  <h3 style={styles.reportSectionTitle}>Professional Links</h3>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                      gap: "12px",
+                      marginTop: "14px",
+                    }}
+                  >
+                    {[
+                      { label: "LinkedIn", value: selected.linkLinkedIn },
+                      { label: "CV Link", value: selected.linkCV },
+                      { label: "Portfolio", value: selected.linkPortfolio },
+                    ].map((item) => {
+                      const url = String(item.value ?? "").trim();
+                      const valid = /^https?:\/\//i.test(url) &&
+                        !/^(null|undefined|-|n\/a)$/i.test(url);
 
+                      return (
+                        <div
+                          key={item.label}
+                          style={{
+                            minWidth: 0,
+                            padding: "12px",
+                            border: "1px solid #DCE5EF",
+                            borderRadius: "10px",
+                            backgroundColor: "#F8FAFC",
+                          }}
+                        >
+                          <div
+                            style={{
+                              color: "#8296B1",
+                              fontSize: "12px",
+                              fontWeight: 700,
+                              marginBottom: "9px",
+                            }}
+                          >
+                            {item.label}
+                          </div>
+                          {valid ? (
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: "100%",
+                                boxSizing: "border-box",
+                                padding: "9px 10px",
+                                borderRadius: "7px",
+                                backgroundColor: "#124559",
+                                color: "#ffffff",
+                                textDecoration: "none",
+                                fontSize: "13px",
+                                fontWeight: 700,
+                                textAlign: "center",
+                              }}
+                            >
+                              Open {item.label}
+                            </a>
+                          ) : (
+                            <div
+                              style={{
+                                color: "#8296B1",
+                                fontSize: "13px",
+                              }}
+                            >
+                              Not provided
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
+              {[
+                { label: "Availability", value: selected.availability },
+                { label: "Working Hours", value: selected.workingHours },
+                { label: "Employee Type", value: selected.employeeType },
+                { label: "Relevant Experience", value: selected.relevantExperience },
+                { label: "Tools", value: selected.tools },
+                { label: "Date of Birth", value: selected.dateOfBirth },
+                { label: "Gender", value: selected.gender },
+                { label: "Where did you hear about this job opportunity?", value: selected.referralSource },
+              ].some((item) => {
+                const value = String(item.value ?? "").trim();
+                return value !== "" && !/^(null|undefined|-|n\/a)$/i.test(value);
+              }) && (
+                <div
+                  style={{
+                    marginBottom: "18px",
+                    padding: "18px",
+                    borderRadius: "12px",
+                    border: "1px solid #e2e8f0",
+                    backgroundColor: "#ffffff",
+                  }}
+                >
+                  <h3 style={styles.reportSectionTitle}>
+                    Additional Candidate Details
+                  </h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px", marginTop: "14px" }}>
+                    {[
+                      { label: "Availability", value: selected.availability },
+                      { label: "Working Hours", value: selected.workingHours },
+                      { label: "Employee Type", value: selected.employeeType },
+                { label: "Relevant Experience", value: selected.relevantExperience },
+                { label: "Tools", value: selected.tools },
+                { label: "Date of Birth", value: selected.dateOfBirth },
+                { label: "Gender", value: selected.gender },
+                { label: "Where did you hear about this job opportunity?", value: selected.referralSource },
+                    ].map((item) => {
+                      const value = String(item.value ?? "").trim();
+                      if (!value || /^(null|undefined|-|n\/a)$/i.test(value)) return null;
+
+                      return (
+                        <div key={item.label}>
+                          <div style={{ color: "#64748b", fontSize: "12px", marginBottom: "6px" }}>
+                            {item.label}
+                          </div>
+                          <div style={{ color: "#0f172a", fontSize: "14px", fontWeight: 600, overflowWrap: "anywhere" }}>
+                            {value}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {/* Candidate CV / Airtable Attachment */}
               <div
                 style={{
                   marginBottom: '18px',
                   padding: '18px',
                   borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
+                  border: '1px solid #DCE5EF',
                   backgroundColor: '#ffffff',
                 }}
               >
@@ -1463,7 +1679,7 @@ const matchesInterviewStatus =
                         <div
                           key={file?.id || index}
                           style={{
-                            border: '1px solid #e2e8f0',
+                            border: '1px solid #DCE5EF',
                             borderRadius: '10px',
                             padding: '12px',
                             backgroundColor: '#f8fafc',
@@ -1560,7 +1776,7 @@ const matchesInterviewStatus =
                                 width: '100%',
                                 height: '500px',
                                 marginTop: '14px',
-                                border: '1px solid #e2e8f0',
+                                border: '1px solid #DCE5EF',
                                 borderRadius: '8px',
                                 backgroundColor: '#ffffff',
                               }}
@@ -2126,7 +2342,7 @@ const styles: Record<string, React.CSSProperties> = {
   pageSizeSelect: {
     padding: '7px 10px',
     borderRadius: '8px',
-    border: '1px solid #e2e8f0',
+    border: '1px solid #DCE5EF',
     backgroundColor: '#ffffff',
     color: '#475569',
     fontSize: '13px',
@@ -2156,7 +2372,7 @@ const styles: Record<string, React.CSSProperties> = {
   cancelBtn: {
     padding: '10px 20px',
     borderRadius: '12px',
-    border: '1px solid #e2e8f0',
+    border: '1px solid #DCE5EF',
     backgroundColor: 'transparent',
     fontSize: '14px',
     fontWeight: 600,
@@ -2174,6 +2390,42 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 12px rgba(18, 69, 89, 0.25)',
   },
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
