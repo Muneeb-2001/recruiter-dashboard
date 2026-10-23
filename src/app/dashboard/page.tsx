@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -14,6 +14,8 @@ type Candidate = {
   linkCV?: string;
   linkPortfolio?: string;
   linkLinkedIn?: string;
+  videoURL?: string;
+  transcriptURL?: string;
   availability?: string;
   workingHours?: string;
   employeeType?: string;
@@ -179,6 +181,8 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
       setCandidates((data.candidates || []).map((c: any) => ({ ...c, linkCV: typeof c.linkCV === "string" ? c.linkCV.trim() : "",
       linkPortfolio: typeof c.linkPortfolio === "string" ? c.linkPortfolio.trim() : "",
       linkLinkedIn: typeof c.linkLinkedIn === "string" ? c.linkLinkedIn.trim() : "",
+      videoURL: String(c.videoURL ?? c.videoUrl ?? c.rawFields?.["Video URL"] ?? c.rawFields?.["Video URL "] ?? c.rawFields?.["video_url"] ?? c.rawFields?.["videoUrl"] ?? "").trim(),
+      transcriptURL: String(c.transcriptURL ?? c.transcriptUrl ?? c.rawFields?.["Transcript URL"] ?? c.rawFields?.["Transcript URL "] ?? c.rawFields?.["transcript_url"] ?? c.rawFields?.["transcriptUrl"] ?? "").trim(),
       availability: c.rawFields?.["Availability"] ?? "",
       workingHours: c.rawFields?.["Working Hours"] ?? "",
       employeeType: c.rawFields?.["Employee Type"] ?? "",
@@ -420,35 +424,48 @@ const matchesInterviewStatus =
   );
   const primaryColor = "#124559";
 
-  const areaNames = [
-    "Automations",
-    "Operational Support",
-    "Digital Content & Media",
-    "Web Designer",
-    "Recruitment",
-    "Revenue/Sales",
-    "Finance",
-  ];
+  const countryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    candidates.forEach((candidate) => {
+      const country = String(
+        candidate.country ??
+        candidate.rawFields?.["Country"] ??
+        candidate.rawFields?.["country"] ??
+        ""
+      ).trim();
+
+      if (!country) return;
+
+      counts[country] = (counts[country] ?? 0) + 1;
+    });
+
+    return Object.entries(counts).sort((a, b) =>
+      a[0].localeCompare(b[0])
+    );
+  }, [candidates]);
 
   const areaCounts = useMemo(() => {
     const counts: Record<string, number> = {};
 
-    areaNames.forEach((area) => {
-      counts[area] = 0;
-    });
-
     candidates.forEach((candidate) => {
-      const candidateArea = (candidate.area ?? "").trim().toLowerCase();
-      const matchingArea = areaNames.find(
-        (area) => area.toLowerCase() === candidateArea
-      );
+      const area = String(
+        candidate.area ??
+        candidate.rawFields?.["Position Applied"] ??
+        candidate.rawFields?.["position_applied"] ??
+        candidate.rawFields?.["Area"] ??
+        candidate.rawFields?.["area"] ??
+        ""
+      ).trim();
 
-      if (matchingArea) {
-        counts[matchingArea] += 1;
-      }
+      if (!area) return;
+
+      counts[area] = (counts[area] ?? 0) + 1;
     });
 
-    return counts;
+    return Object.entries(counts).sort((a, b) =>
+      a[0].localeCompare(b[0])
+    );
   }, [candidates]);
   return (
     <div style={styles.container}>
@@ -473,7 +490,7 @@ const matchesInterviewStatus =
         </div>
         <div
           style={{
-            margin: "2px 18px 6px",
+            margin: "2px 8px 6px 18px",
             padding: "4px 0",
             border: "1px solid #cfe1e8",
             borderRadius: "18px",
@@ -492,7 +509,8 @@ const matchesInterviewStatus =
             Candidates by Area
           </p>
 
-          {areaNames.map((area) => (
+          <div style={{ maxHeight: "260px", overflowY: "auto" }}>
+            {areaCounts.map(([area, count]) => (
             <div
               key={area}
               style={{
@@ -521,11 +539,75 @@ const matchesInterviewStatus =
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {areaCounts[area]}
+                {count}
               </span>
             </div>
-          ))}
+            ))}
+          </div>
         </div>
+        <div
+          style={{
+            margin: "12px 12px 8px 18px",
+            padding: "12px",
+            border: "1px solid #DCE5EF",
+            borderRadius: "10px",
+            background: "#FFFFFF",
+          }}
+        >
+          <p
+            style={{
+              margin: "0 0 10px",
+              color: "#124559",
+              fontSize: "13px",
+              fontWeight: 700,
+            }}
+          >
+            Candidates by Country
+          </p>
+
+          <div style={{ maxHeight: "260px", overflowY: "auto" }}>
+            {countryCounts.length === 0 ? (
+              <p style={{ margin: 0, color: "#8296B1", fontSize: "12px" }}>
+                No country data available
+              </p>
+            ) : (
+              countryCounts.map(([country, count]) => (
+                <div
+                  key={country}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "8px",
+                    padding: "6px 0",
+                    borderBottom: "1px solid #F1F5F9",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "#334155",
+                      fontSize: "12px",
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    {country}
+                  </span>
+                  <span
+                    style={{
+                      color: "#124559",
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {count}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
         <div style={{...styles.sidebarScoreGuide, marginLeft: '18px', marginTop: '4px'}}>
           <p style={styles.sidebarGuideTitle}>ATS Score Guide</p>
           <div style={styles.sidebarGuideItem}>
@@ -647,7 +729,7 @@ const matchesInterviewStatus =
                         lineHeight: 1,
                       }}
                     >
-                      ×
+                      Ã—
                     </button>
                   )}
                 </div>
@@ -1134,7 +1216,7 @@ const matchesInterviewStatus =
     {formatTime(candidate.date)}
   </div>
 </div></td>
-                        <td style={styles.td}>{candidate.area || "â€"}</td>
+                        <td style={styles.td}>{candidate.area || "Ã¢â‚¬Â"}</td>
                         <td style={styles.td}>
                           <button onClick={() => setSelected(candidate)} style={{...styles.viewBtn, background: primaryColor}}>
                             View report
@@ -1246,7 +1328,7 @@ const matchesInterviewStatus =
                 onClick={() => setSelected(null)}
                 style={styles.modalClose}
               >
-                ×
+                Ã—
               </button>
             </div>
 
@@ -1281,7 +1363,7 @@ const matchesInterviewStatus =
                       color: '#0f172a',
                     }}
                   >
-                    {selected.recommendation?.replace(/[â€"â€œ]/g, "").trim() || "-"}
+                    {selected.recommendation?.replace(/[Ã¢â‚¬Â"Ã¢â‚¬Å“]/g, "").trim() || "-"}
                   </p>
                 </div>
 
@@ -1303,7 +1385,7 @@ const matchesInterviewStatus =
                       color: '#0f172a',
                     }}
                   >
-                    {selected.area || "â€"}
+                    {selected.area || "Ã¢â‚¬Â"}
                   </p>
                 </div>
               </div>
@@ -1347,7 +1429,7 @@ const matchesInterviewStatus =
                     marginTop: '10px',
                   }}
                 >
-                  {selected.summary?.replace(/[â€"â€œ]/g, "").trim() || "-"}
+                  {selected.summary?.replace(/[Ã¢â‚¬Â"Ã¢â‚¬Å“]/g, "").trim() || "-"}
                 </p>
               </div>
 
@@ -1400,7 +1482,7 @@ const matchesInterviewStatus =
                             lineHeight: 1.4,
                           }}
                         >
-                          ✓
+                          âœ“
                         </span>
 
                         <span>{item}</span>
@@ -1483,6 +1565,8 @@ const matchesInterviewStatus =
                 { label: "LinkedIn", value: selected.linkLinkedIn },
                 { label: "CV Link", value: selected.linkCV },
                 { label: "Portfolio", value: selected.linkPortfolio },
+                { label: "Video URL", value: selected.videoURL },
+                { label: "Transcript URL", value: selected.transcriptURL },
               ].some((item) => {
                 const value = String(item.value ?? "").trim();
                 return /^https?:\/\//i.test(value) &&
@@ -1510,6 +1594,8 @@ const matchesInterviewStatus =
                       { label: "LinkedIn", value: selected.linkLinkedIn },
                       { label: "CV Link", value: selected.linkCV },
                       { label: "Portfolio", value: selected.linkPortfolio },
+                      { label: "Video URL", value: selected.videoURL },
+                      { label: "Transcript URL", value: selected.transcriptURL },
                     ].map((item) => {
                       const url = String(item.value ?? "").trim();
                       const valid = /^https?:\/\//i.test(url) &&
@@ -1824,7 +1910,7 @@ const matchesInterviewStatus =
           <div style={{...styles.modal, maxWidth: '480px', borderColor: primaryColor + '20'}} onClick={(e) => e.stopPropagation()}>
             <div style={{...styles.modalHeader, borderColor: primaryColor + '15'}}>
               <h2 style={{...styles.modalTitle, color: primaryColor}}>Send AI Interview Link?</h2>
-              <button onClick={() => setInterviewCandidate(null)} style={styles.modalClose}>×</button>
+              <button onClick={() => setInterviewCandidate(null)} style={styles.modalClose}>Ã—</button>
             </div>
             <div style={styles.modalBody}>
               <p style={styles.modalText}>Are you sure you want to send the AI interview link to this candidate?</p>
