@@ -1,6 +1,7 @@
 ﻿'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Candidate = {
   rawFields?: Record<string, unknown>;
@@ -8,6 +9,7 @@ type Candidate = {
   name: string;
   email: string;
   area: string;
+  role?: string;
   country?: string;
   salaryExpectation?: string | number;
   attachment: any;
@@ -26,6 +28,7 @@ type Candidate = {
   gender?: string;
   referralSource?: string;
   region?: string;
+  positionApplied?: string;
   date: string;
   status: string;
   score: number | null;
@@ -156,9 +159,128 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Candidate | null>(null);
+  const [reportComment, setReportComment] = useState("");
+  const [commentEditMode, setCommentEditMode] = useState(false);
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [commentFeedback, setCommentFeedback] = useState("");
+  const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<"Area" | "Role" | null>(null);
+  const [editFieldValue, setEditFieldValue] = useState("");
+  const [roleSearchQuery, setRoleSearchQuery] = useState("");
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const [roleFullscreen, setRoleFullscreen] = useState(false);
+const [editMenuPosition, setEditMenuPosition] = useState({ top: 80, left: 20 });
+  const editAnchorRef = useRef<HTMLElement | null>(null);
+  const editMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!editingCandidateId || !editingField || roleFullscreen) return;
+
+    const updateEditorPosition = () => {
+      const anchor = editAnchorRef.current;
+      if (!anchor || !anchor.isConnected) {
+        setEditingCandidateId(null);
+        setEditingField(null);
+        return;
+      }
+
+      const rect = anchor.getBoundingClientRect();
+
+      if (rect.bottom <= 0 || rect.top >= window.innerHeight ||
+          rect.right <= 0 || rect.left >= window.innerWidth) {
+        setEditingCandidateId(null);
+        setEditingField(null);
+        return;
+      }
+
+      const panelHeight = Math.min(
+        editingField === "Role" ? 440 : 240,
+        window.innerHeight - 16
+      );
+      const top = Math.max(8, rect.top - 6 - (editMenuRef.current?.getBoundingClientRect().height ?? panelHeight));
+
+      const left = Math.max(
+        8,
+        Math.min(rect.left, window.innerWidth - 296)
+      );
+
+      setEditMenuPosition(previous =>
+        previous.top === top && previous.left === left
+          ? previous
+          : { top, left }
+      );
+    };
+
+    updateEditorPosition();
+    window.addEventListener("scroll", updateEditorPosition, true);
+    window.addEventListener("resize", updateEditorPosition);
+
+    return () => {
+      window.removeEventListener("scroll", updateEditorPosition, true);
+      window.removeEventListener("resize", updateEditorPosition);
+    };
+  }, [editingCandidateId, editingField, roleFullscreen]);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editFeedback, setEditFeedback] = useState("");
+  useEffect(() => {
+    if (!editingCandidateId || !editingField) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+if (target.closest('[data-area-role-edit-menu="true"]') || target.closest('[data-role-dropdown-options="true"]')) { return; }
+      if (!target.closest('[data-area-role-edit-menu="true"]') && !target.closest('[data-role-dropdown-options="true"]')) {
+      setEditingCandidateId(null);
+      setEditingField(null);
+      setRoleSearchQuery("");
+      setEditFieldValue("");
+      setEditFeedback("");
+      setRoleFullscreen(false);
+    }
+    };
+
+    document.addEventListener("click", handleOutsideClick);
+
+    return () => {
+      document.removeEventListener("click", handleOutsideClick);
+    };
+  }, [editingCandidateId, editingField]);
   const [search, setSearch] = useState("");
-  const [selectedArea, setSelectedArea] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState("");
+  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [areaMenuOpen, setAreaMenuOpen] = useState(false);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const areaDropdownRef = useRef<HTMLDivElement>(null);
+  const roleDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (
+        countryDropdownRef.current &&
+        !countryDropdownRef.current.contains(target)
+      ) {
+        setCountryMenuOpen(false);
+      }
+
+      if (areaDropdownRef.current && !areaDropdownRef.current.contains(target)) {
+        setAreaMenuOpen(false);
+      }
+
+      if (roleDropdownRef.current && !roleDropdownRef.current.contains(target)) {
+        setRoleMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [countryMenuOpen, setCountryMenuOpen] = useState(false);
+  const countryDropdownRef = useRef<HTMLDivElement>(null);
+  const [selectedAreaForRoles, setSelectedAreaForRoles] = useState<string | null>(null);
+  const [expandedMiniDashboard, setExpandedMiniDashboard] = useState<"area" | "country" | null>(null);
   const [minAtsScore, setMinAtsScore] = useState("");
   const [maxAtsScore, setMaxAtsScore] = useState("");
   const [minYearsExperience, setMinYearsExperience] = useState("");
@@ -184,15 +306,16 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
       videoURL: String(c.videoURL ?? c.videoUrl ?? c.rawFields?.["Video URL"] ?? c.rawFields?.["Video URL "] ?? c.rawFields?.["video_url"] ?? c.rawFields?.["videoUrl"] ?? "").trim(),
       transcriptURL: String(c.transcriptURL ?? c.transcriptUrl ?? c.rawFields?.["Transcript URL"] ?? c.rawFields?.["Transcript URL "] ?? c.rawFields?.["transcript_url"] ?? c.rawFields?.["transcriptUrl"] ?? "").trim(),
       availability: c.rawFields?.["Availability"] ?? "",
-      workingHours: c.rawFields?.["Working Hours"] ?? "",
-      employeeType: c.rawFields?.["Employee Type"] ?? "",
+      workingHours: c.workingHours ?? c.rawFields?.["Working Hours"] ?? c.rawFields?.["working_hours"] ?? c.rawFields?.["workingHours"] ?? "",
+      employeeType: c.employeeType ?? c.rawFields?.["Employee Type"] ?? c.rawFields?.["employee_type"] ?? c.rawFields?.["employeeType"] ?? "",
       relevantExperience: c.rawFields?.["Relevant Experience"] ?? "",
       yearsOfExperience: c.rawFields?.["Years of Experience"] ?? "",
       tools: c.rawFields?.["Tools"] ?? "",
       dateOfBirth: c.rawFields?.["Date of Birth"] ?? "",
       gender: c.rawFields?.["Gender"] ?? "",
       referralSource: c.rawFields?.["Where did you hear about this job opportunity?"] ?? "",
-      region: c.rawFields?.["Region (SEA / Non SEA)"] ?? "", date: normalizeCandidateDate(c.date),
+      region: c.rawFields?.["Region (SEA / Non SEA)"] ?? "",
+      positionApplied: c.rawFields?.["Position Applied"] ?? "", date: normalizeCandidateDate(c.date),
       attachment: (() => {
         const value = c.attachment;
 
@@ -268,10 +391,42 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
 
     const matchesDate =
       !selectedDate || candidateDate === selectedDate;
+    const candidateArea = String(
+      candidate.rawFields?.["Area"] ??
+      candidate.rawFields?.["area"] ??
+      candidate.area ??
+      ""
+    ).trim();
+
+    const standardAreas = [
+      "Automations",
+      "Operational Support",
+      "Digital Content & Media",
+      "Web Designer",
+      "Recruitment",
+      "Revenue/Sales",
+      "Finance",
+    ];
+
     const matchesArea =
-      !selectedArea ||
-      (candidate.area ?? "").trim().toLowerCase() ===
-        selectedArea.trim().toLowerCase();
+      selectedAreas.length === 0 ||
+      selectedAreas.some((area) =>
+        area === "Other"
+          ? !candidateArea ||
+            !standardAreas.some((knownArea) =>
+              knownArea.toLowerCase() === candidateArea.toLowerCase()
+            )
+          : candidateArea.toLowerCase() === area.toLowerCase()
+      );
+
+    const candidateRole = String(candidate.rawFields?.["Role"] ?? "").trim();
+
+    const matchesRole =
+      selectedRoles.length === 0 ||
+      selectedRoles.some(
+        (role) => candidateRole.toLowerCase() === role.toLowerCase()
+      );
+
     const normalizeCountry = (value: unknown) =>
       String(value ?? "")
         .normalize("NFD")
@@ -279,17 +434,18 @@ const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
         .toLowerCase()
         .replace(/[^a-z0-9]/g, "");
 
-    const countryKeyword = normalizeCountry(selectedCountry);
-    const candidateCountry = normalizeCountry(
+    const candidateCountry = String(
       candidate.country ??
       candidate.rawFields?.["Country"] ??
       candidate.rawFields?.["country"] ??
       ""
-    );
+    ).trim();
 
     const matchesCountry =
-      !countryKeyword ||
-      candidateCountry.includes(countryKeyword);
+      selectedCountries.length === 0 ||
+      selectedCountries.some(
+        (country) => normalizeCountry(candidateCountry) === normalizeCountry(country)
+      );
 
     const score = candidate.score;
     const matchesMinScore =
@@ -306,7 +462,13 @@ const matchesInterviewStatus =
   !selectedInterviewStatus ||
   normalizeInterviewStatus(candidate.interviewStatus) ===
     normalizeInterviewStatus(selectedInterviewStatus);
-    const yearsText = String(candidate.yearsOfExperience ?? "").trim();
+    const yearsText = String(
+      candidate.yearsOfExperience ??
+      candidate.rawFields?.["Years of Experience"] ??
+      candidate.rawFields?.["Relevant Experience"] ??
+      ""
+    ).trim().toLowerCase();
+
     const yearsMatch = yearsText.match(/\d+(?:\.\d+)?/);
     const yearsValue = yearsMatch ? Number(yearsMatch[0]) : NaN;
     const hasYearsValue = yearsText !== "" && Number.isFinite(yearsValue);
@@ -319,7 +481,7 @@ const matchesInterviewStatus =
       maxYearsExperience === "" ||
       (hasYearsValue && yearsValue <= Number(maxYearsExperience));
 
-    return matchesSearch && matchesDate && matchesArea && matchesCountry &&
+    return matchesSearch && matchesDate && matchesArea && matchesRole && matchesCountry &&
       matchesMinScore && matchesMaxScore && matchesInterviewStatus &&
       matchesMinYears && matchesMaxYears;
   });
@@ -424,6 +586,18 @@ const matchesInterviewStatus =
   );
   const primaryColor = "#124559";
 
+  const availableCountries = useMemo(() => {
+    const values = candidates.map((candidate) =>
+      String(
+        candidate.country ??
+        candidate.rawFields?.["Country"] ??
+        candidate.rawFields?.["country"] ??
+        ""
+      ).trim()
+    ).filter(Boolean);
+
+    return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+  }, [candidates]);
   const countryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
 
@@ -446,26 +620,30 @@ const matchesInterviewStatus =
   }, [candidates]);
 
   const areaCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
+    const approvedAreas = [
+      "Revenue/Sales",
+      "Operational Support",
+      "Digital Content & Media",
+      "Web Designer",
+      "Automations",
+      "Recruitment",
+      "Finance",
+    ];
 
-    candidates.forEach((candidate) => {
-      const area = String(
-        candidate.area ??
-        candidate.rawFields?.["Position Applied"] ??
-        candidate.rawFields?.["position_applied"] ??
-        candidate.rawFields?.["Area"] ??
-        candidate.rawFields?.["area"] ??
-        ""
-      ).trim();
+    return approvedAreas.map((area) => {
+      const count = candidates.filter((candidate) => {
+        const candidateArea = String(
+          candidate.rawFields?.["Area"] ??
+          candidate.rawFields?.["area"] ??
+          candidate.area ??
+          ""
+        ).trim();
 
-      if (!area) return;
+        return candidateArea.toLowerCase() === area.toLowerCase();
+      }).length;
 
-      counts[area] = (counts[area] ?? 0) + 1;
+      return [area, count] as [string, number];
     });
-
-    return Object.entries(counts).sort((a, b) =>
-      a[0].localeCompare(b[0])
-    );
   }, [candidates]);
   return (
     <div style={styles.container}>
@@ -489,8 +667,22 @@ const matchesInterviewStatus =
           </div>
         </div>
         <div
-          style={{
-            margin: "2px 8px 6px 18px",
+          style={expandedMiniDashboard === "area" ? {
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            width: "100vw",
+            height: "100vh",
+            boxSizing: "border-box",
+            margin: 0,
+            padding: "24px",
+            border: "none",
+            borderRadius: 0,
+            background: "#FFFFFF",
+            boxShadow: "none",
+            overflow: "auto",
+          } : {
+            margin: "2px 4px 6px 18px",
             padding: "4px 0",
             border: "1px solid #cfe1e8",
             borderRadius: "18px",
@@ -498,55 +690,133 @@ const matchesInterviewStatus =
             boxShadow: "0 8px 22px rgba(18,69,89,0.06)",
           }}
         >
-          <p
-            style={{
-              margin: "0 0 5px",
-              color: "#124559",
-              fontSize: "15px",
-              fontWeight: 700,
-            }}
-          >
-            Candidates by Area
-          </p>
-
-          <div style={{ maxHeight: "260px", overflowY: "auto" }}>
-            {areaCounts.map(([area, count]) => (
-            <div
-              key={area}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "8px",
-                padding: "4px 0",
-                borderBottom: "1px solid #edf2f5",
-              }}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "0 12px", marginBottom: "5px" }}>
+            <p style={{ margin: 0, color: "#124559", fontSize: expandedMiniDashboard === "area" ? "22px" : "15px", fontWeight: 700 }}>
+              Candidates by Area / Role
+            </p>
+            <button
+              type="button"
+              onClick={() => setExpandedMiniDashboard(expandedMiniDashboard === "area" ? null : "area")}
+              aria-label={expandedMiniDashboard === "area" ? "Close expanded area panel" : "Expand area panel"}
+              title={expandedMiniDashboard === "area" ? "Close" : "Expand to full screen"}
+              style={{ width: "30px", height: "30px", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, border: "1px solid #DCE5EF", borderRadius: "7px", background: "#FFFFFF", color: "#124559", cursor: "pointer", fontSize: "14px", flexShrink: 0 }}
             >
-              <span
-                style={{
-                  color: "#475569",
-                  fontSize: "14px",
-                  lineHeight: 1.35,
-                }}
-              >
-                {area}
-              </span>
-              <span
-                style={{
-                  color: "#124559",
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {count}
-              </span>
-            </div>
-            ))}
+              {expandedMiniDashboard === "area" ? "✕" : "⛶"}
+            </button>
+          </div>
+
+          <div style={{ maxHeight: expandedMiniDashboard === "area" ? "calc(100vh - 110px)" : "260px", overflowY: "auto", padding: expandedMiniDashboard === "area" ? "0 4px" : "0" }}>
+            {areaCounts.map(([area, count]) => {
+              const isSelected = selectedAreaForRoles === area;
+
+              const roleCounts: [string, number][] = Object.entries(
+                candidates.reduce<Record<string, number>>((counts, candidate) => {
+                  const candidateArea = String(
+                    candidate.rawFields?.["Area"] ??
+                    candidate.rawFields?.["area"] ??
+                    candidate.area ??
+                    ""
+                  ).trim();
+
+                  if (candidateArea.toLowerCase() !== area.toLowerCase()) {
+                    return counts;
+                  }
+
+                  const role = String(
+                    candidate.rawFields?.["Role"] ??
+                    ""
+                  ).trim();
+
+                  if (!role) return counts;
+
+                  counts[role] = (counts[role] ?? 0) + 1;
+                  return counts;
+                }, {})
+              ).sort(([a], [b]) => a.localeCompare(b));
+
+              return (
+                <div key={area}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAreaForRoles(isSelected ? null : area)}
+                    aria-expanded={isSelected}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "8px",
+                      width: "100%",
+                      padding: "11px 10px",
+                      border: "none",
+                      borderBottom: "1px solid #D8E8F0",
+                      borderLeft: isSelected ? "4px solid #124559" : "4px solid #B8D5E2",
+                      borderRadius: "4px",
+                      background: isSelected ? "#E5F2F8" : "#F4F9FC",
+                      color: "#124559",
+                      textAlign: "left",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: 700,
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    <span style={{ flex: 1 }}>{area}</span>
+                    <span style={{ color: "#124559", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                      {count}
+                    </span>
+                    <span style={{ color: "#64748b", fontSize: "11px" }}>
+                      {isSelected ? "▲" : "▼"}
+                    </span>
+                  </button>
+
+                  {isSelected && (
+                    <div style={{ marginLeft: "14px", padding: "6px 10px 8px 12px", background: "#FFFFFF", borderLeft: "2px solid #DCE5EF", borderBottom: "1px solid #E8EEF2", borderRadius: "0 0 6px 6px" }}>
+                      {roleCounts.length === 0 ? (
+                        <p style={{ margin: "6px 0", color: "#8296B1", fontSize: "12px" }}>
+                          No roles found for this area.
+                        </p>
+                      ) : (
+                        roleCounts.map(([role, roleCount]) => (
+                          <div
+                            key={role}
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              justifyContent: "space-between",
+                              gap: "8px",
+                              padding: "7px 0",
+                              borderBottom: "1px solid #edf2f5",
+                              fontSize: "12px",
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            <span style={{ flex: 1, color: "#475569" }}>{role}</span>
+                            <span style={{ color: "#124559", fontWeight: 700 }}>{roleCount}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
         <div
-          style={{
+          style={expandedMiniDashboard === "country" ? {
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            width: "100vw",
+            height: "100vh",
+            boxSizing: "border-box",
+            margin: 0,
+            padding: "24px",
+            border: "none",
+            borderRadius: 0,
+            background: "#FFFFFF",
+            overflow: "auto",
+          } : {
             margin: "12px 12px 8px 18px",
             padding: "12px",
             border: "1px solid #DCE5EF",
@@ -554,18 +824,22 @@ const matchesInterviewStatus =
             background: "#FFFFFF",
           }}
         >
-          <p
-            style={{
-              margin: "0 0 10px",
-              color: "#124559",
-              fontSize: "13px",
-              fontWeight: 700,
-            }}
-          >
-            Candidates by Country
-          </p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "10px" }}>
+            <p style={{ margin: 0, color: "#124559", fontSize: expandedMiniDashboard === "country" ? "22px" : "13px", fontWeight: 700 }}>
+              Candidates by Country
+            </p>
+            <button
+              type="button"
+              onClick={() => setExpandedMiniDashboard(expandedMiniDashboard === "country" ? null : "country")}
+              aria-label={expandedMiniDashboard === "country" ? "Close expanded country panel" : "Expand country panel"}
+              title={expandedMiniDashboard === "country" ? "Close" : "Expand to full screen"}
+              style={{ width: "30px", height: "30px", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, border: "1px solid #DCE5EF", borderRadius: "7px", background: "#FFFFFF", color: "#124559", cursor: "pointer", fontSize: "14px", flexShrink: 0 }}
+            >
+              {expandedMiniDashboard === "country" ? "✕" : "⛶"}
+            </button>
+          </div>
 
-          <div style={{ maxHeight: "260px", overflowY: "auto" }}>
+          <div style={{ maxHeight: expandedMiniDashboard === "country" ? "calc(100vh - 110px)" : "260px", overflowY: "auto", padding: expandedMiniDashboard === "country" ? "0 4px" : "0" }}>
             {countryCounts.length === 0 ? (
               <p style={{ margin: 0, color: "#8296B1", fontSize: "12px" }}>
                 No country data available
@@ -579,7 +853,7 @@ const matchesInterviewStatus =
                     alignItems: "center",
                     justifyContent: "space-between",
                     gap: "8px",
-                    padding: "6px 0",
+                    padding: "7px 0",
                     borderBottom: "1px solid #F1F5F9",
                   }}
                 >
@@ -635,7 +909,33 @@ const matchesInterviewStatus =
 
       {/* Main Content */}
       <div style={styles.mainContent}>
-        <div style={styles.header}>
+        <div
+  role="alert"
+  style={{
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "12px 20px",
+    backgroundColor: "#FEF2F2",
+    borderBottom: "1px solid #FCA5A5",
+    color: "#991B1B",
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "10px",
+    fontSize: "13px",
+    lineHeight: 1.5,
+  }}
+>
+  <span style={{ fontSize: "18px", flexShrink: 0 }}>⚠️</span>
+  <div>
+    <strong style={{ display: "block", marginBottom: "2px" }}>
+      System Maintenance Notice
+    </strong>
+    The dashboard is currently undergoing maintenance. Some features
+    may be temporarily unavailable or may not function as expected.
+    We apologize for the inconvenience and appreciate your patience.
+  </div>
+</div>
+<div style={styles.header}>
           <div>
             <p style={{...styles.headerBadge, color: primaryColor}}>Recruitment</p>
             <h1 style={styles.headerTitle}>Recruiter Dashboard</h1>
@@ -729,7 +1029,7 @@ const matchesInterviewStatus =
                         lineHeight: 1,
                       }}
                     >
-                      Ã—
+                      ×
                     </button>
                   )}
                 </div>
@@ -852,68 +1152,156 @@ const matchesInterviewStatus =
 >
 
 
-  <input
+  <div ref={countryDropdownRef} style={{ position: "relative" }}>
+    <button
+      type="button"
+      onClick={() => setCountryMenuOpen((open) => !open)}
+      aria-label="Filter by country"
+      aria-expanded={countryMenuOpen}
+      style={{
+        width: "145px",
+        height: "38px",
+        boxSizing: "border-box",
+        padding: "0 10px",
+        border: "1px solid #DCE5EF",
+        borderRadius: "8px",
+        background: "#fff",
+        color: "#334155",
+        fontSize: "13px",
+        cursor: "pointer",
+        textAlign: "left"
+      }}
+    >
+      {selectedCountries.length === 0
+        ? "Filter by country"
+        : `${selectedCountries.length} Countries`} ▾
+    </button>
 
+    {countryMenuOpen && (
+      <div style={{
+        position: "absolute",
+        top: "42px",
+        left: 0,
+        zIndex: 100,
+        width: "230px",
+        maxHeight: "300px",
+        overflowY: "auto",
+        background: "#fff",
+        border: "1px solid #DCE5EF",
+        borderRadius: "8px",
+        padding: "8px",
+        boxShadow: "0 8px 20px rgba(0,0,0,0.12)"
+      }}>
+        {availableCountries.length === 0 ? (
+          <div style={{ padding: "8px", fontSize: "13px", color: "#64748b" }}>
+            No countries available
+          </div>
+        ) : availableCountries.map((country) => (
+          <label key={country} style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "7px 4px",
+            fontSize: "13px",
+            cursor: "pointer"
+          }}>
+            <input
+              type="checkbox"
+              checked={selectedCountries.includes(country)}
+              onChange={() => {
+                setSelectedCountries((previous) =>
+                  previous.includes(country)
+                    ? previous.filter((item) => item !== country)
+                    : [...previous, country]
+                );
+                setCurrentPage(1);
+              }}
+            />
+            {country}
+          </label>
+        ))}
 
-    type="text"
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedCountries([]);
+            setCurrentPage(1);
+          }}
+          style={{
+            marginTop: "6px",
+            padding: "6px",
+            width: "100%",
+            border: "1px solid #DCE5EF",
+            borderRadius: "6px",
+            background: "#F8FAFC",
+            cursor: "pointer"
+          }}
+        >
+          Clear countries
+        </button>
+      </div>
+    )}
+  </div>
 
+  <div ref={areaDropdownRef} style={{ position: "relative" }}>
+    <button type="button"
+      onClick={() => { setAreaMenuOpen(!areaMenuOpen); setRoleMenuOpen(false); }}
+      style={{ width: "165px", height: "38px", padding: "0 10px", border: "1px solid #DCE5EF", borderRadius: "8px", background: "#fff", color: "#334155", fontSize: "13px", cursor: "pointer", textAlign: "left" }}>
+      {selectedAreas.length === 0 ? "All Areas" : `${selectedAreas.length} Areas Selected`} ▾
+    </button>
+    {areaMenuOpen && <div style={{ position: "absolute", top: "42px", left: 0, zIndex: 50, width: "220px", maxHeight: "300px", overflowY: "auto", background: "#fff", border: "1px solid #DCE5EF", borderRadius: "8px", padding: "8px", boxShadow: "0 8px 20px rgba(0,0,0,0.12)" }}>
+      {["Other", "Automations", "Operational Support", "Digital Content & Media", "Web Designer", "Recruitment", "Revenue/Sales", "Finance"].map((area) => (
+        <label key={area} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "7px 4px", fontSize: "13px", cursor: "pointer" }}>
+          <input type="checkbox" checked={selectedAreas.includes(area)}
+            onChange={() => {
+              setSelectedAreas((prev) => prev.includes(area) ? prev.filter((item) => item !== area) : [...prev, area]);
+              setSelectedRoles([]);
+              setCurrentPage(1);
+            }} />
+          {area}
+        </label>
+      ))}
+      <button type="button" onClick={() => { setSelectedAreas([]); setSelectedRoles([]); setCurrentPage(1); }}
+        style={{ marginTop: "6px", padding: "6px", width: "100%", border: "1px solid #DCE5EF", borderRadius: "6px", background: "#F8FAFC", cursor: "pointer" }}>
+        Clear areas
+      </button>
+    </div>}
+  </div>
 
-    value={selectedCountry}
-
-
-    onChange={(e) => {
-
-
-      setSelectedCountry(e.target.value);
-
-
-      setCurrentPage(1);
-
-
-    }}
-
-
-    placeholder="Filter by country"
-
-
-    aria-label="Filter by country"
-
-
-    style={{ width: "145px", height: "38px", boxSizing: "border-box", padding: "0 10px", border: "1px solid #DCE5EF", borderRadius: "8px", fontSize: "13px", color: "#334155" }}
-
-
-  />
-
-  <select
-    aria-label="Filter by area"
-    value={selectedArea}
-    onChange={(e) => {
-      setSelectedArea(e.target.value);
-      setCurrentPage(1);
-    }}
-    style={{
-      width: "165px",
-      height: "38px",
-      boxSizing: "border-box",
-      padding: "0 10px",
-      border: "1px solid #DCE5EF",
-      borderRadius: "8px",
-      outline: "none",
-      backgroundColor: "#ffffff",
-      color: "#334155",
-      fontSize: "13px",
-      cursor: "pointer",
-    }}
-  >
-    <option value="">All Areas</option>
-    <option value="Automations">Automations</option>
-    <option value="Operational Support">Operational Support</option>
-    <option value="Digital Content & Media">Digital Content & Media</option>
-    <option value="Web Designer">Web Designer</option>
-    <option value="Recruitment">Recruitment</option>
-    <option value="Revenue/Sales">Revenue/Sales</option>
-    <option value="Finance">Finance</option>
-  </select>
+  <div ref={roleDropdownRef} style={{ position: "relative" }}>
+    <button type="button"
+      onClick={() => { setRoleMenuOpen(!roleMenuOpen); setAreaMenuOpen(false); }}
+      style={{ minWidth: "175px", maxWidth: "240px", height: "38px", padding: "0 10px", border: "1px solid #DCE5EF", borderRadius: "8px", background: "#fff", color: "#334155", fontSize: "13px", cursor: "pointer", textAlign: "left" }}>
+      {selectedRoles.length === 0 ? (selectedAreas.length === 1 ? `All ${selectedAreas[0]} Roles` : "All Roles") : `${selectedRoles.length} Roles Selected`} ▾
+    </button>
+    {roleMenuOpen && <div style={{ position: "absolute", top: "42px", left: 0, zIndex: 50, width: "280px", maxHeight: "350px", overflowY: "auto", background: "#fff", border: "1px solid #DCE5EF", borderRadius: "8px", padding: "8px", boxShadow: "0 8px 20px rgba(0,0,0,0.12)" }}>
+      {[
+        { area: "Revenue/Sales", roles: ["Appointment Setter", "Cold Caller", "Lead Researcher", "Apollo Researcher", "LinkedIn Researcher", "CRM Data Assistant", "Sales Assistant", "Sales Development Representative (SDR)", "Business Development Representative (BDR)"] },
+        { area: "Operational Support", roles: ["Executive Assistant", "Operations Assistant", "Customer Support Assistant", "Customer Success Assistant", "Admin Assistant", "Project Coordinator"] },
+        { area: "Digital Content & Media", roles: ["Social Media Manager", "Content Creator", "Video Editor", "Short-form Video Editor", "Graphic Designer", "Canva Designer", "Copywriter", "Newsletter Assistant", "AI Content Operator"] },
+        { area: "Web Designer", roles: ["Web Designer", "Landing Page Builder", "WordPress Assistant", "Elementor Builder", "Framer Builder", "Website Maintenance Assistant", "Web QA Assistant", "Local SEO Assistant", "Webflow Assistant"] },
+        { area: "Automations", roles: ["Clay Operator", "Apollo + Smartlead", "OperatorGoHigh", "Level AssistantHub", "Spot Assistant", "CRM Assistant", "Make.com Assistant", "n8n Automation Assistant", "Zapier Assistant", "AI Automation Assistant", "Prompt / AI Workflow Assistant"] },
+        { area: "Recruitment", roles: ["Talent Sourcer", "Recruiter", "Candidate Screener", "Recruitment Coordinator", "HR Assistant", "LinkedIn Sourcing Assistant", "Candidate Database Assistant"] },
+        { area: "Finance", roles: ["Bookkeeper", "Finance Admin Assistant", "Accounts Payable Assistant", "Accounts Receivable Assistant", "Payroll Assistant", "Xero Assistant", "QuickBooks Assistant", "Reporting Assistant"] }
+      ].filter((bucket) => selectedAreas.length === 0 || selectedAreas.includes(bucket.area))
+       .flatMap((bucket) => bucket.roles)
+       .filter((role, index, roles) => roles.indexOf(role) === index)
+       .map((role) => (
+         <label key={role} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "7px 4px", fontSize: "13px", cursor: "pointer" }}>
+           <input type="checkbox" checked={selectedRoles.includes(role)}
+             onChange={() => {
+               setSelectedRoles((prev) => prev.includes(role) ? prev.filter((item) => item !== role) : [...prev, role]);
+               setCurrentPage(1);
+             }} />
+           {role}
+         </label>
+       ))}
+      <button type="button" onClick={() => { setSelectedRoles([]); setCurrentPage(1); }}
+        style={{ marginTop: "6px", padding: "6px", width: "100%", border: "1px solid #DCE5EF", borderRadius: "6px", background: "#F8FAFC", cursor: "pointer" }}>
+        Clear roles
+      </button>
+    </div>}
+  </div>
 
   <input
     type="number"
@@ -991,6 +1379,7 @@ const matchesInterviewStatus =
     <option value="Interview Done">Interview Done</option>
   </select>
 
+
   <input
     type="number"
     min="0"
@@ -1023,7 +1412,9 @@ const matchesInterviewStatus =
       setMinYearsExperience("");
       setMaxYearsExperience("");
       setSelectedInterviewStatus("");
-      setSelectedArea("");
+      setSelectedAreas([]);
+      setSelectedRoles([]);
+      setSelectedCountries([]);
       setCurrentPage(1);
     }}
     style={{
@@ -1175,7 +1566,7 @@ const matchesInterviewStatus =
                       </th>
                       <th style={{...styles.th, width: '20%'}}>Candidate</th>
                       <th style={{...styles.th, width: '12%'}}>Date</th>
-                      <th style={{...styles.th, width: '12%'}}><strong>Area</strong></th>
+                      <th style={{...styles.th, width: '16%'}}><strong>Area / Role</strong></th>
                       
                       <th style={{...styles.th, width: '15%'}}>AI Summary</th>
                       <th style={{...styles.th, width: '16%'}}>Interview Status</th>
@@ -1202,7 +1593,7 @@ const matchesInterviewStatus =
                               <p style={styles.candidateName}>{candidate.name || "Unnamed"}</p>
                               <p style={styles.candidateEmail}>{candidate.email || "No email"}</p>
                               <p style={{ fontSize: "12px", color: "#64748b", margin: "3px 0 0" }}>
-                                Country: {candidate.country || "Not provided"} · Experience: {(() => { const value = String(candidate.yearsOfExperience ?? "").trim().replace(/\.0+$/, ""); return value ? `${value} ${Number(value) === 1 ? "year" : "years"}` : "Not provided"; })()}
+                                Country: {candidate.country || "Not provided"} · Salary expectation: {String(candidate.salaryExpectation ?? candidate.rawFields?.["Salary Expectation (with Currency)"] ?? candidate.rawFields?.["Salary Expectation"] ?? candidate.rawFields?.salaryExpectation ?? "").trim() || "Not provided"}
                               </p>
                             </div>
                           </div>
@@ -1216,9 +1607,259 @@ const matchesInterviewStatus =
     {formatTime(candidate.date)}
   </div>
 </div></td>
-                        <td style={styles.td}>{candidate.area || "Ã¢â‚¬Â"}</td>
                         <td style={styles.td}>
-                          <button onClick={() => setSelected(candidate)} style={{...styles.viewBtn, background: primaryColor}}>
+  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "8px", width: "100%" }}>
+    {(["Area", "Role"] as const).map((field) => {
+      const currentValue = String(
+        field === "Area"
+          ? (candidate.rawFields?.["Area"] ?? candidate.rawFields?.["area"] ?? candidate.area ?? "")
+          : (candidate.rawFields?.["Role"] ?? candidate.rawFields?.["role"] ?? candidate.role ?? "")
+      ).trim();
+
+      const options = field === "Role"
+        ? ["Appointment Setter","Cold Caller","Lead Researcher","Apollo Researcher","LinkedIn Researcher","CRM Data Assistant","Sales Assistant","Sales Development Representative (SDR)","Business Development Representative (BDR)","Executive Assistant","Operations Assistant","Customer Support Assistant","Customer Success Assistant","Admin Assistant","Project Coordinator","Social Media Manager","Content Creator","Video Editor","Short-form Video Editor","Graphic Designer","Canva Designer","Copywriter","Newsletter Assistant","AI Content Operator","Web Designer","Landing Page Builder","WordPress Assistant","Elementor Builder","Framer Builder","Website Maintenance Assistant","Web QA Assistant","Local SEO Assistant","Webflow Assistant","Clay Operator","Apollo + Smartlead Operator","GoHighLevel Assistant","HubSpot Assistant","CRM Assistant","Make.com Assistant","n8n Automation Assistant","Zapier Assistant","AI Automation Assistant","Prompt / AI Workflow Assistant","Talent Sourcer","Recruiter","Candidate Screener","Recruitment Coordinator","HR Assistant","LinkedIn Sourcing Assistant","Candidate Database Assistant","Bookkeeper","Finance Admin Assistant","Accounts Payable Assistant","Accounts Receivable Assistant","Payroll Assistant","Xero Assistant","QuickBooks Assistant","Reporting Assistant"]
+        : Array.from(new Set(
+            candidates.map((item) =>
+              String(item.rawFields?.["Area"] ?? item.rawFields?.["area"] ?? item.area ?? "").trim()
+            ).filter(Boolean)
+          )).sort((a, b) => a.localeCompare(b));
+
+      if (currentValue && !options.includes(currentValue)) options.unshift(currentValue);
+
+      const isEditing =
+        editingCandidateId === String(candidate.id) && editingField === field;
+
+      return (
+        <div key={field} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "6px", width: "100%" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "5px", maxWidth: "100%" }}>
+            <span style={{
+              display: "inline-block",
+              padding: "5px 9px",
+              borderRadius: "6px",
+              background: field === "Area" ? "#E0F2F1" : "#F1EAFE",
+              border: field === "Area" ? "1px solid #99D5CE" : "1px solid #D6C4F5",
+              color: field === "Area" ? "#115E59" : "#6B3FA0",
+              fontSize: "12px",
+              fontWeight: 600,
+              lineHeight: 1.4,
+              overflowWrap: "anywhere"
+            }}>
+              <span style={{ fontWeight: 700 }}>{field}:</span>{" "}
+              {currentValue || (field === "Area" ? "Other" : "Role not provided")}
+            </span>
+
+            <button
+              type="button"
+              title={`Edit ${field}`}
+              aria-label={`Edit ${field}`}
+              onClick={(event) => {
+                                editAnchorRef.current = event.currentTarget;
+                const rect = event.currentTarget.getBoundingClientRect();
+                const panelHeight = Math.min(field === "Role" ? 440 : 240, window.innerHeight - 16);
+                const top = Math.max(8, rect.top - 6 - (editMenuRef.current?.getBoundingClientRect().height ?? panelHeight));
+                const left = Math.max(8, Math.min(rect.left, window.innerWidth - 296));
+                setEditMenuPosition({ top, left });
+                setEditingCandidateId(String(candidate.id));
+                setEditingField(field);
+                setRoleSearchQuery('');
+                setRoleDropdownOpen(false);
+                setEditFieldValue(currentValue);
+                setEditFeedback("");
+              }}
+              style={{
+                border: "1px solid #D1D5DB",
+                borderRadius: "6px",
+                background: "#FFFFFF",
+                color: "#374151",
+                cursor: "pointer",
+                width: "28px",
+                height: "28px",
+                flexShrink: 0,
+                fontSize: "18px"
+              }}
+            >
+              ⋮
+            </button>
+          </div>
+
+          {isEditing && typeof document !== "undefined" && createPortal(
+            <div ref={editMenuRef} data-area-role-edit-menu="true" onClick={(event) => event.stopPropagation()} style={roleFullscreen && field === "Role" ? { position: "fixed", inset: 0, zIndex: 10000, display: "flex", flexDirection: "column", gap: "12px", width: "100vw", height: "100dvh", maxWidth: "none", boxSizing: "border-box", overflowY: "auto", padding: "24px", background: "#FFFFFF", border: "none", borderRadius: 0, boxShadow: "none" } : { position: "fixed", top: editMenuPosition.top, left: editMenuPosition.left, zIndex: 10000, display: "flex", flexDirection: "column", gap: "8px", width: "min(280px, calc(100vw - 16px))", maxHeight: `calc(100dvh - ${editMenuPosition.top + 8}px)`, overflowY: "auto", overscrollBehavior: "contain", boxSizing: "border-box", padding: "12px", background: "#FFFFFF", border: "1px solid #D1D5DB", borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600 }}>
+                Select {field}
+              </label>
+              {field === "Role" ? (
+                <div style={{ position: "relative", width: "100%" }}>
+                  <input
+                    type="text"
+                    value={roleSearchQuery}
+                    onChange={(event) => {
+                      setRoleSearchQuery(event.target.value);
+                      setRoleDropdownOpen(true);
+                    }}
+                    onFocus={() => setRoleDropdownOpen(true)}
+                    placeholder={editFieldValue || "Search or select a role..."}
+                    aria-label="Search and select a role"
+                    disabled={editSubmitting}
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+                      padding: "10px 12px",
+                      border: "1px solid #D1D5DB",
+                      borderRadius: "6px",
+                      background: "#FFFFFF",
+                      color: "#111827",
+                      fontSize: "13px",
+                      boxSizing: "border-box"
+                    }}
+                  />
+
+                  {roleDropdownOpen && (
+                    <div data-role-dropdown-options="true" style={roleFullscreen ? { position: "relative", width: "100%", maxWidth: "100%", maxHeight: "none", overflowY: "visible", overscrollBehavior: "contain", zIndex: 10001, background: "#FFFFFF", border: "1px solid #D1D5DB", borderRadius: "8px", boxShadow: "none" } : { position: "relative", width: "100%", maxWidth: "100%", maxHeight: "min(40dvh, 300px)", overflowY: "auto", overscrollBehavior: "contain", zIndex: 1, background: "#FFFFFF", border: "1px solid #D1D5DB", borderRadius: "8px", boxShadow: "none" }}>
+                      {options.filter((option) =>
+                        option.toLowerCase().includes(roleSearchQuery.trim().toLowerCase())
+                      ).map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => {
+                            setEditFieldValue(option);
+                            setRoleSearchQuery("");
+                            setRoleDropdownOpen(false);
+                          }}
+                          onMouseEnter={(event) => {
+                            event.currentTarget.style.backgroundColor = "#1D4ED8";
+                            event.currentTarget.style.color = "#FFFFFF";
+                          }}
+                          onMouseLeave={(event) => {
+                            event.currentTarget.style.backgroundColor = editFieldValue === option ? "#1D4ED8" : "#FFFFFF";
+                            event.currentTarget.style.color = editFieldValue === option ? "#FFFFFF" : "#111827";
+                          }}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            padding: "9px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            borderBottom: "1px solid #F3F4F6",
+                            background: editFieldValue === option ? "#1D4ED8" : "#FFFFFF",
+                            color: "#111827",
+                            cursor: "pointer",
+                            fontSize: "13px"
+                          }}
+                        >
+                          {option}
+                        </button>
+                      ))}
+
+                      {options.filter((option) =>
+                        option.toLowerCase().includes(roleSearchQuery.trim().toLowerCase())
+                      ).length === 0 && (
+                        <div style={{ padding: "10px 12px", color: "#6B7280", fontSize: "12px" }}>
+                          No matching roles found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <select
+                  value={editFieldValue}
+                  onChange={(event) => setEditFieldValue(event.target.value)}
+                  disabled={editSubmitting}
+                  style={{ width: "100%", minWidth: 0, padding: "9px", border: "1px solid #D1D5DB", borderRadius: "6px", background: "#FFFFFF", color: "#111827", fontSize: "13px" }}
+                >
+                  {!editFieldValue && <option value="">Choose {field}</option>}
+                  {options.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              )}
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  type="button"
+                  disabled={editSubmitting || !editFieldValue.trim() || editFieldValue === currentValue}
+                  onClick={async () => {
+                    if (!editFieldValue.trim() || editSubmitting) return;
+
+                    const oldValue = currentValue;
+                    const newValue = editFieldValue.trim();
+                    setEditSubmitting(true);
+                    setEditFeedback("");
+
+                    try {
+                      const response = await fetch(
+                        "https://n8n.domingogarcia.info/webhook/b4da5467-21f2-453c-975a-17fea31ff277",
+                        {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            candidateId: String(candidate.id),
+                            candidateName: candidate.name,
+                            candidateEmail: candidate.email,
+                            field,
+                            oldValue,
+                            newValue,
+                            submittedAt: new Date().toISOString()
+                          })
+                        }
+                      );
+
+                      if (!response.ok) throw new Error(`Webhook returned HTTP ${response.status}`);
+
+                      setCandidates((previous) => previous.map((item) =>
+                        String(item.id) === String(candidate.id)
+                          ? {
+                              ...item,
+                              ...(field === "Area" ? { area: newValue } : { role: newValue }),
+                              rawFields: { ...(item.rawFields ?? {}), [field]: newValue }
+                            }
+                          : item
+                      ));
+
+                      setEditFeedback(`${field} submitted successfully.`);
+                      setEditingCandidateId(null);
+                      setEditingField(null);
+                      setRoleSearchQuery('');
+                      setEditFieldValue("");
+                    } catch (error) {
+                      console.error(`Failed to submit ${field} change:`, error);
+                      setEditFeedback(error instanceof Error ? `Submission failed: ${error.message}` : "Submission failed. Please try again.");
+                    } finally {
+                      setEditSubmitting(false);
+                    }
+                  }}
+                  style={{ flex: 1, padding: "8px 10px", border: "none", borderRadius: "6px", background: "#2563EB", color: "#FFFFFF", cursor: "pointer", fontSize: "12px", fontWeight: 600 }}
+                >
+                  {editSubmitting ? "Submitting..." : "Save Changes"}
+                </button>
+                <button
+                  type="button"
+                  disabled={editSubmitting}
+                  onClick={() => {
+                    setEditingCandidateId(null);
+                    setEditingField(null);
+                      setRoleSearchQuery('');
+                    setEditFieldValue("");
+                    setEditFeedback("");
+                  }}
+                  style={{ padding: "8px 10px", border: "1px solid #D1D5DB", borderRadius: "6px", background: "#FFFFFF", color: "#374151", cursor: "pointer", fontSize: "12px" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          , document.body
+          )}
+        </div>
+      );
+    })}
+    {editFeedback && editingCandidateId === String(candidate.id) && (
+      <span style={{ fontSize: "12px", color: "#B91C1C" }}>{editFeedback}</span>
+    )}
+  </div>
+</td>
+                        <td style={styles.td}>
+                          <button onClick={() => { setSelected(candidate); setReportComment(String(candidate.rawFields?.["Comments"] ?? "")); setCommentEditMode(false); setCommentFeedback(""); }} style={{...styles.viewBtn, background: primaryColor}}>
                             View report
                           </button>
                         </td>
@@ -1328,7 +1969,7 @@ const matchesInterviewStatus =
                 onClick={() => setSelected(null)}
                 style={styles.modalClose}
               >
-                Ã—
+                ×
               </button>
             </div>
 
@@ -1366,28 +2007,6 @@ const matchesInterviewStatus =
                     {selected.recommendation?.replace(/[Ã¢â‚¬Â"Ã¢â‚¬Å“]/g, "").trim() || "-"}
                   </p>
                 </div>
-
-                <div
-                  style={{
-                    padding: '18px',
-                    borderRadius: '12px',
-                    border: '1px solid #DCE5EF',
-                    backgroundColor: '#ffffff',
-                  }}
-                >
-                  <p style={styles.modalStatLabel}><strong>Area</strong></p>
-
-                  <p
-                    style={{
-                      margin: '6px 0 0',
-                      fontSize: '16px',
-                      fontWeight: 700,
-                      color: '#0f172a',
-                    }}
-                  >
-                    {selected.area || "Ã¢â‚¬Â"}
-                  </p>
-                </div>
               </div>
 
 
@@ -1402,9 +2021,9 @@ const matchesInterviewStatus =
                 }}
               >
                 <div style={{ padding: "14px", border: "1px solid #e2e8f0", borderRadius: "10px" }}>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", marginBottom: "5px" }}>SALARY EXPECTATION</div>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", marginBottom: "5px" }}>YEARS OF EXPERIENCE</div>
                   <div style={{ fontSize: "18px", fontWeight: 700, color: "#124559" }}>
-                    {selected.salaryExpectation ?? "—"}
+                    {String(selected.yearsOfExperience ?? selected.rawFields?.["Years of Experience"] ?? "").trim().replace(/\.0+$/, "") || "—"}
                   </div>
                 </div>
               </div>
@@ -1666,6 +2285,8 @@ const matchesInterviewStatus =
                 { label: "Availability", value: selected.availability },
                 { label: "Working Hours", value: selected.workingHours },
                 { label: "Employee Type", value: selected.employeeType },
+                      { label: "Position Applied (Submitted in Application Form)", value: selected.positionApplied },
+                      { label: "Region (SEA / Non SEA)", value: selected.region },
                 { label: "Relevant Experience", value: selected.relevantExperience },
                 { label: "Tools", value: selected.tools },
                 { label: "Date of Birth", value: selected.dateOfBirth },
@@ -1692,6 +2313,8 @@ const matchesInterviewStatus =
                       { label: "Availability", value: selected.availability },
                       { label: "Working Hours", value: selected.workingHours },
                       { label: "Employee Type", value: selected.employeeType },
+                      { label: "Position Applied (Submitted in Application Form)", value: selected.positionApplied },
+                      { label: "Region (SEA / Non SEA)", value: selected.region },
                 { label: "Relevant Experience", value: selected.relevantExperience },
                 { label: "Tools", value: selected.tools },
                 { label: "Date of Birth", value: selected.dateOfBirth },
@@ -1715,7 +2338,182 @@ const matchesInterviewStatus =
                   </div>
                 </div>
               )}
-              {/* Candidate CV / Airtable Attachment */}
+              {/* Candidate Comments */}
+              <div
+                style={{
+                  marginBottom: "18px",
+                  padding: "18px",
+                  borderRadius: "12px",
+                  border: "1px solid #DCE5EF",
+                  backgroundColor: "#ffffff",
+                }}
+              >
+                <h3 style={styles.reportSectionTitle}>Candidate Comments</h3>
+                <textarea
+                  value={reportComment}
+                  readOnly={!commentEditMode && Boolean(String(selected?.rawFields?.["Comments"] ?? "").trim())}
+                  onChange={(e) => setReportComment(e.target.value)}
+                  placeholder="Write a comment about this candidate..."
+                  rows={4}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    marginTop: "12px",
+                    padding: "12px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "8px",
+                    resize: "vertical",
+                    font: "inherit",
+                    color: "#0f172a",
+                    backgroundColor:
+                      !commentEditMode && Boolean(String(selected?.rawFields?.["Comments"] ?? "").trim())
+                        ? "#f8fafc"
+                        : "#ffffff",
+                    cursor:
+                      !commentEditMode && Boolean(String(selected?.rawFields?.["Comments"] ?? "").trim())
+                        ? "default"
+                        : "text",
+                  }}
+                />
+                {commentFeedback && (
+                  <p
+                    style={{
+                      marginTop: "8px",
+                      fontSize: "13px",
+                      color: commentFeedback.startsWith("Error") ? "#dc2626" : "#15803d",
+                    }}
+                  >
+                    {commentFeedback}
+                  </p>
+                )}
+                <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
+                  {String(selected?.rawFields?.["Comments"] ?? "").trim() && !commentEditMode ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCommentEditMode(true);
+                        setCommentFeedback("");
+                      }}
+                      style={{
+                        padding: "10px 18px",
+                        border: "none",
+                        borderRadius: "8px",
+                        backgroundColor: primaryColor,
+                        color: "#ffffff",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Edit
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        disabled={commentSubmitting || !reportComment.trim()}
+                        onClick={async () => {
+                          if (!selected || !reportComment.trim() || commentSubmitting) return;
+
+                          setCommentSubmitting(true);
+                          setCommentFeedback("");
+
+                          try {
+                            const response = await fetch(
+                              "https://n8n.domingogarcia.info/webhook/b4da5467-21f2-453c-975a-17fea31ff277",
+                              {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  candidateId: selected.id,
+                                  candidateName: selected.name,
+                                  candidateEmail: selected.email,
+                                  comment: reportComment.trim(),
+                                  submittedAt: new Date().toISOString(),
+                                }),
+                              }
+                            );
+
+                            if (!response.ok) {
+                              throw new Error(`HTTP ${response.status}`);
+                            }
+
+                            setCommentFeedback("Submitted");
+                            setCommentEditMode(false);
+
+                            setCandidates((previous) =>
+                              previous.map((candidate) =>
+                                candidate.id === selected.id
+                                  ? {
+                                      ...candidate,
+                                      rawFields: {
+                                        ...candidate.rawFields,
+                                        Comments: reportComment.trim(),
+                                      },
+                                    }
+                                  : candidate
+                              )
+                            );
+
+                            setSelected((previous) =>
+                              previous
+                                ? {
+                                    ...previous,
+                                    rawFields: {
+                                      ...previous.rawFields,
+                                      Comments: reportComment.trim(),
+                                    },
+                                  }
+                                : previous
+                            );
+                          } catch (error) {
+                            console.error("Comment webhook failed:", error);
+                            setCommentFeedback(
+                              "Error: Could not submit comment. Check the webhook and browser console."
+                            );
+                          } finally {
+                            setCommentSubmitting(false);
+                          }
+                        }}
+                        style={{
+                          padding: "10px 18px",
+                          border: "none",
+                          borderRadius: "8px",
+                          backgroundColor:
+                            commentSubmitting || !reportComment.trim() ? "#94a3b8" : primaryColor,
+                          color: "#ffffff",
+                          fontWeight: 600,
+                          cursor:
+                            commentSubmitting || !reportComment.trim() ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {commentSubmitting ? "Sending..." : "Submit Comment"}
+                      </button>
+                      {commentEditMode && (
+                        <button
+                          type="button"
+                          disabled={commentSubmitting}
+                          onClick={() => {
+                            setReportComment(String(selected?.rawFields?.["Comments"] ?? ""));
+                            setCommentEditMode(false);
+                            setCommentFeedback("");
+                          }}
+                          style={{
+                            padding: "10px 18px",
+                            border: "1px solid #cbd5e1",
+                            borderRadius: "8px",
+                            backgroundColor: "#ffffff",
+                            color: "#334155",
+                            fontWeight: 600,
+                            cursor: commentSubmitting ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>              {/* Candidate CV / Airtable Attachment */}
               <div
                 style={{
                   marginBottom: '18px',
@@ -1910,7 +2708,7 @@ const matchesInterviewStatus =
           <div style={{...styles.modal, maxWidth: '480px', borderColor: primaryColor + '20'}} onClick={(e) => e.stopPropagation()}>
             <div style={{...styles.modalHeader, borderColor: primaryColor + '15'}}>
               <h2 style={{...styles.modalTitle, color: primaryColor}}>Send AI Interview Link?</h2>
-              <button onClick={() => setInterviewCandidate(null)} style={styles.modalClose}>Ã—</button>
+              <button onClick={() => setInterviewCandidate(null)} style={styles.modalClose}>×</button>
             </div>
             <div style={styles.modalBody}>
               <p style={styles.modalText}>Are you sure you want to send the AI interview link to this candidate?</p>
@@ -2476,6 +3274,71 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 12px rgba(18, 69, 89, 0.25)',
   },
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

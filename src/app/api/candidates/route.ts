@@ -96,7 +96,8 @@ export async function GET() {
         id: candidateId,
         name,
         email,
-        area: fields["Position Applied"] ?? fields["position_applied"] ?? fields.Area ?? fields.area ?? "",
+        area: fields.Area ?? fields.area ?? "",
+        role: fields.Role ?? fields.role ?? "",
         country: fields.Country ?? fields.country ?? "",
         salaryExpectation:
           fields["Salary Expectation (with Currency)"] ??
